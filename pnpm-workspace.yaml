@@ -1,0 +1,12 @@
+# pnpm workspace membership for JavaScript and TypeScript projects.
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Explicitly approved native build scripts required by Next.js and ESLint tooling.
+onlyBuiltDependencies:
+  - sharp
+  - unrs-resolver
+allowBuilds:
+  sharp: true
+  unrs-resolver: true

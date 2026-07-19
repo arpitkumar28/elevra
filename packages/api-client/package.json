@@ -1,0 +1,21 @@
+{
+  "name": "@elevra/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --project tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "echo \"No api-client tests yet\"",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@elevra/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@elevra/config": "workspace:*",
+    "typescript": "^5.7.2"
+  }
+}

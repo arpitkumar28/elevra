@@ -1,0 +1,7 @@
+# Static analysis rules for the mobile app.
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_final_locals: true

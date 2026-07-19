@@ -1,0 +1,13 @@
+# Keep Docker build contexts small and deterministic.
+node_modules
+.next
+.turbo
+.git
+.venv
+__pycache__
+coverage
+build
+.dart_tool
+*.log
+.env
+.env.*

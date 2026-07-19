@@ -1,0 +1,6 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+meilisearch==0.31.6
+pydantic-settings==2.7.1
+ruff==0.8.4
+pytest==8.3.4

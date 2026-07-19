@@ -1,0 +1,7 @@
+{
+  "displayedAttributes": ["*"],
+  "searchableAttributes": ["title", "description", "provider", "tags"],
+  "filterableAttributes": ["type", "country", "gradeLevel", "deadline"],
+  "sortableAttributes": ["deadline", "createdAt", "popularityScore"],
+  "rankingRules": ["words", "typo", "proximity", "attribute", "sort", "exactness"]
+}

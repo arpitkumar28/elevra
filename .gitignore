@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.turbo/
+
+# Next.js
+.next/
+out/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+.venv-*/
+venv/
+htmlcov/
+.mypy_cache/
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+android/.gradle/
+ios/Pods/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.docker.example
+
+# Logs and OS files
+*.log
+flutter_*.log
+.DS_Store
+
+# Coverage and reports
+coverage/
+test-results/
+playwright-report/

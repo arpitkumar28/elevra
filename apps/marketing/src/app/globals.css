@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+:root {
+  --background: 210 33% 98%;
+  --foreground: 218 32% 12%;
+  --border: 214 22% 88%;
+  --primary: 170 72% 29%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 210 25% 94%;
+  --muted-foreground: 215 15% 38%;
+  --accent: 36 88% 56%;
+  --accent-foreground: 218 32% 12%;
+}
+
+body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: Arial, Helvetica, sans-serif;
+}
