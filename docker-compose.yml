@@ -1,148 +1,24 @@
-name: elevra
-
 services:
   postgres:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg16
+    container_name: elevra-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-elevra}
       POSTGRES_USER: ${POSTGRES_USER:-elevra}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-elevra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-elevra_dev_password}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   redis:
-    image: redis:7.4-alpine
-    command: ["redis-server", "--appendonly", "yes"]
+    image: redis:7-alpine
+    container_name: elevra-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  meilisearch:
-    image: getmeili/meilisearch:v1.12
-    environment:
-      MEILI_ENV: development
-      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-change-me}
-    ports:
-      - "7700:7700"
-    volumes:
-      - meili_data:/meili_data
-
-  minio:
-    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
-    command: ["server", "/data", "--console-address", ":9001"]
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-elevra}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-elevra-secret}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-
-  backend:
-    build:
-      context: .
-      dockerfile: services/backend/Dockerfile
-    env_file:
-      - .env
-    ports:
-      - "8000:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      meilisearch:
-        condition: service_started
-
-  marketing:
-    build:
-      context: .
-      dockerfile: apps/marketing/Dockerfile
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
-
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
-    ports:
-      - "3001:3001"
-    depends_on:
-      - backend
-
-  admin:
-    build:
-      context: .
-      dockerfile: apps/admin/Dockerfile
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
-    ports:
-      - "3002:3002"
-    depends_on:
-      - backend
-
-  crawler:
-    build:
-      context: .
-      dockerfile: services/crawler/Dockerfile
-    ports:
-      - "8010:8010"
-    depends_on:
-      redis:
-        condition: service_healthy
-
-  ai-engine:
-    build:
-      context: .
-      dockerfile: services/ai-engine/Dockerfile
-    ports:
-      - "8020:8020"
-    depends_on:
-      redis:
-        condition: service_healthy
-
-  scheduler:
-    build:
-      context: .
-      dockerfile: services/scheduler/Dockerfile
-    ports:
-      - "8030:8030"
-    depends_on:
-      redis:
-        condition: service_healthy
-
-  search:
-    build:
-      context: .
-      dockerfile: services/search/Dockerfile
-    ports:
-      - "8040:8040"
-    depends_on:
-      meilisearch:
-        condition: service_started
 
 volumes:
   postgres_data:
   redis_data:
-  meili_data:
-  minio_data:

@@ -1,15 +1,26 @@
-"""Alembic environment for Elevra backend migrations."""
-
 from logging.config import fileConfig
+from pathlib import Path
+import sys
 
 from alembic import context
-from app.domain.models import entities  # noqa: F401
-from app.infrastructure.database.base import Base
 from sqlalchemy import engine_from_config, pool
 
-config = context.config
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-if config.config_file_name is not None:
+from app.core.config import settings
+from app.db.session import Base
+from app.models.user import User
+from app.models.student_profile import StudentProfile
+from app.models.exam import Exam
+from app.models.exam_syllabus import ExamSyllabus
+from app.models.exam_pattern import ExamPattern
+from app.models.exam_dates import ExamDate
+from app.models.exam_faq import ExamFAQ
+from app.models.opportunity import Opportunity
+
+config = context.config
+config.set_main_option("sqlalchemy.url", settings.database_url)
+if config.config_file_name is not None and config.file_config.has_section("formatters"):
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata

@@ -1,43 +1,68 @@
-# Dependencies
-node_modules/
-.pnpm-store/
-.turbo/
-
-# Next.js
-.next/
-out/
-
-# Python
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.ruff_cache/
-.venv/
-.venv-*/
-venv/
-htmlcov/
-.mypy_cache/
-
-# Flutter
-.dart_tool/
+node_modules
+.pnpm-store
+.next
+dist
+build
+out
+coverage
+.env
+.env.local
+.pycache__
+*.pyc
 .flutter-plugins
 .flutter-plugins-dependencies
-build/
-android/.gradle/
-ios/Pods/
+.dart_tool
+.vscode
+.DS_Store
 
-# Environment and secrets
+# Python
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Flutter
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.dart_tool/
+build/
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Local databases
+*.sqlite
+*.sqlite3
+
+# Test artifacts
+htmlcov/
+.pytest_cache/
+
+# Environment files
 .env
 .env.*
 !.env.example
-!.env.docker.example
 
-# Logs and OS files
-*.log
-flutter_*.log
-.DS_Store
+# Turborepo
+.turbo/
 
-# Coverage and reports
-coverage/
-test-results/
-playwright-report/
+# TypeScript build information
+*.tsbuildinfo
+
+# Next.js generated files
+.next/
+
+# Build output
+dist/
+build/
+out/

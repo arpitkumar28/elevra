@@ -1,32 +1,23 @@
-"""Runtime settings loaded from environment variables."""
+import os
+from dataclasses import dataclass, field
+from typing import List
 
-from functools import lru_cache
+from dotenv import load_dotenv
 
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
-
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-
-    environment: str = Field(default="development", alias="NODE_ENV")
-    database_url: str = "postgresql+asyncpg://elevra:elevra@localhost:5432/elevra"
-    redis_url: str = "redis://localhost:6379/0"
-    jwt_secret: str = "change-me"
-    jwt_issuer: str = "elevra"
-    jwt_audience: str = "elevra-students"
-    cors_origins: list[str] = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-    ]
-    rate_limit_default: str = "120/minute"
-    enable_docs: bool = True
+load_dotenv()
 
 
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
+@dataclass(frozen=True)
+class Settings:
+    app_name: str = os.getenv("APP_NAME", "elevra")
+    database_url: str = os.getenv("DATABASE_URL", "postgresql+psycopg://elevra:elevra_dev_password@localhost:5432/elevra")
+    db_pool_size: int = int(os.getenv("DB_POOL_SIZE", "5"))
+    db_max_overflow: int = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+    db_pool_timeout: int = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+    db_connect_timeout: int = int(os.getenv("DB_CONNECT_TIMEOUT", "5"))
+    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    jwt_secret: str = os.getenv("JWT_SECRET", "change-me")
+    allowed_origins: List[str] = field(default_factory=lambda: os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001").split(","))
 
 
-settings = get_settings()
+settings = Settings()
