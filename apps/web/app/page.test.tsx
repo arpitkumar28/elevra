@@ -6,6 +6,6 @@ import Page from "./[[...slug]]/page";
 describe("Elevra web app", () => {
   it("renders the home experience", () => {
     render(<Page params={{ slug: [] }} />);
-    expect(screen.getByText("Your Career & Exam Companion")).toBeDefined();
+    expect(screen.getByRole("heading", { name: /your career.*exam companion/i })).toBeDefined();
   });
 });

@@ -1,10 +1,8 @@
-import { Bell, BookOpenCheck, CalendarDays, Compass } from "lucide-react";
-
 const tiles = [
-  { icon: Compass, title: "Discover", value: "128", label: "matched opportunities" },
-  { icon: BookOpenCheck, title: "Learn", value: "72%", label: "exam readiness" },
-  { icon: CalendarDays, title: "Plan", value: "9", label: "upcoming deadlines" },
-  { icon: Bell, title: "Alerts", value: "4", label: "priority notifications" },
+  { icon: "⌁", title: "Discover", value: "128", label: "matched opportunities" },
+  { icon: "✓", title: "Learn", value: "72%", label: "exam readiness" },
+  { icon: "▦", title: "Plan", value: "9", label: "upcoming deadlines" },
+  { icon: "◉", title: "Alerts", value: "4", label: "priority notifications" },
 ];
 
 export default function StudentHome() {
@@ -27,7 +25,7 @@ export default function StudentHome() {
               className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
               key={tile.title}
             >
-              <tile.icon className="text-teal-700" size={24} />
+              <span className="text-2xl text-teal-700">{tile.icon}</span>
               <p className="mt-4 text-sm font-medium text-slate-600">{tile.title}</p>
               <p className="mt-2 text-3xl font-semibold">{tile.value}</p>
               <p className="mt-1 text-sm text-slate-500">{tile.label}</p>
