@@ -53,6 +53,9 @@ htmlcov/
 .env.*
 !.env.example
 
+# Supabase CLI local metadata (project link and generated connection details)
+supabase/.temp/
+
 # Turborepo
 .turbo/
 
