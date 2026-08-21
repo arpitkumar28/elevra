@@ -1,23 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-import {
-  createApiClient,
-  ApiError,
-  type Exam,
-  type Opportunity,
-} from "@elevra/api-client";
+import { createApiClient, ApiError, type Exam, type Opportunity } from "@elevra/api-client";
 const apiClient = createApiClient({
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+  baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1",
 });
-const nice = (v: string) =>
-  v.replace(/_/g, " ").replace(/\b\w/g, (x) => x.toUpperCase());
-const Panel = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) => (
+const nice = (v: string) => v.replace(/_/g, " ").replace(/\b\w/g, (x) => x.toUpperCase());
+const Panel = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
     <h2 className="text-lg font-bold">{title}</h2>
     <div className="mt-4">{children}</div>
@@ -45,8 +33,7 @@ export default function AdminPage({ params }: { params: { slug?: string[] } }) {
       <Panel title="Connection issue">
         <p className="text-slate-600">{error}</p>
         <p className="mt-2 text-sm">
-          Admin mutations use the existing authenticated API and require an
-          administrator session.
+          Admin mutations use the existing authenticated API and require an administrator session.
         </p>
       </Panel>
     );
@@ -71,8 +58,8 @@ export default function AdminPage({ params }: { params: { slug?: string[] } }) {
         </div>
         <Panel title="Recent activity">
           <p className="text-slate-600">
-            Published content is supplied by the live API. Verification and
-            publication remain authorization-protected backend actions.
+            Published content is supplied by the live API. Verification and publication remain
+            authorization-protected backend actions.
           </p>
         </Panel>
       </div>
@@ -89,29 +76,23 @@ export default function AdminPage({ params }: { params: { slug?: string[] } }) {
                   Status: New · Source verification required
                 </p>
                 <p className="text-xs text-slate-500">
-                  Verification actions require the existing authenticated admin
-                  API.
+                  Verification actions require the existing authenticated admin API.
                 </p>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-slate-600">
-            No published items currently require verification.
-          </p>
+          <p className="text-slate-600">No published items currently require verification.</p>
         )}
       </Panel>
     );
-  const records =
-    route === "exams" ? exams : route === "opportunities" ? opps : [];
+  const records = route === "exams" ? exams : route === "opportunities" ? opps : [];
   const label = route === "exams" ? "Exam" : "Opportunity";
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-semibold text-amber-700">
-            CONTENT OPERATIONS
-          </p>
+          <p className="text-sm font-semibold text-amber-700">CONTENT OPERATIONS</p>
           <h1 className="text-3xl font-bold">{nice(route)}</h1>
         </div>
         <button
@@ -137,9 +118,7 @@ export default function AdminPage({ params }: { params: { slug?: string[] } }) {
               <tbody>
                 {records.map((x) => (
                   <tr className="border-b" key={x.id}>
-                    <td className="py-4 font-medium">
-                      {"name" in x ? x.name : x.title}
-                    </td>
+                    <td className="py-4 font-medium">{"name" in x ? x.name : x.title}</td>
                     <td>Published</td>
                     <td>{x.verified ? "Verified" : "New"}</td>
                     <td>
@@ -157,9 +136,7 @@ export default function AdminPage({ params }: { params: { slug?: string[] } }) {
             </table>
           </div>
         ) : (
-          <p className="text-slate-600">
-            No published records returned by the API.
-          </p>
+          <p className="text-slate-600">No published records returned by the API.</p>
         )}
       </Panel>
     </div>

@@ -17,8 +17,9 @@ async def me(user: Annotated[CurrentUser, Depends(get_current_user)]) -> Current
 
 @router.post("/dev-token", response_model=TokenPair, include_in_schema=False)
 async def dev_token() -> TokenPair:
+    user_id = "00000000-0000-4000-8000-000000000001"
     access_token = create_access_token(
-        "00000000-0000-4000-8000-000000000001",
+        user_id,
         {
             "email": "student@example.com",
             "name": "Elevra Student",

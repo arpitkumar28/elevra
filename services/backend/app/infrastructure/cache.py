@@ -22,6 +22,17 @@ class CacheClient:
     def ttl(self, key: str) -> int:
         return int(self.client.ttl(key))
 
+    def close(self) -> None:
+        try:
+            self.client.close()
+        except Exception:
+            # Redis is an optional runtime dependency for public reads; a
+            # shutdown failure must not prevent the API from stopping.
+            pass
+
+
+cache_client = CacheClient()
+
 
 def check_redis() -> bool:
-    return CacheClient().ping()
+    return cache_client.ping()

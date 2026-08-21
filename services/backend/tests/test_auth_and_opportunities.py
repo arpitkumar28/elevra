@@ -16,5 +16,7 @@ def test_dev_token_allows_opportunity_search() -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["meta"]["total"] == 1
-    assert payload["data"][0]["status"] == "approved"
+    assert payload["total"] == 1
+    assert payload["page"] == 1
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["status"] == "published"

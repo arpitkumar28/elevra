@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createApiClient, ApiError, type Exam, type Opportunity } from "@elevra/api-client";
 
 const apiClient = createApiClient({
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+  baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1",
 });
 
 const examCategories = [
@@ -403,10 +403,26 @@ function Home() {
   ];
   return (
     <main>
-      <section className="mx-auto grid max-w-7xl overflow-hidden px-5 pb-9 pt-7 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:pt-12">
+      <section className="border-b border-amber-100 bg-[#fff7d9]">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 overflow-auto px-5 py-2 text-xs font-semibold text-slate-700 lg:px-8">
+          <span className="shrink-0 rounded-full bg-[#172039] px-2.5 py-1 text-white">
+            LIVE UPDATES
+          </span>
+          <span className="shrink-0">UPSC CSE notification is out</span>
+          <span className="hidden text-amber-700 sm:inline">•</span>
+          <span className="hidden shrink-0 sm:inline">Never miss an application deadline</span>
+          <Link
+            href="/exams"
+            className="ml-auto shrink-0 text-[#aa7000] underline underline-offset-2"
+          >
+            View all updates
+          </Link>
+        </div>
+      </section>
+      <section className="mx-auto grid max-w-7xl overflow-hidden px-5 pb-9 pt-4 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:pt-8">
         <div className="relative z-10 py-8 lg:py-16">
-          <p className="mb-5 text-sm font-bold uppercase tracking-[.18em] text-[#e5a300]">
-            One platform. Every opportunity.
+          <p className="mb-5 flex items-center gap-2 text-sm font-bold uppercase tracking-[.18em] text-[#e5a300]">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" /> India&apos;s opportunity hub
           </p>
           <h1 className="max-w-xl text-4xl font-extrabold leading-[1.08] tracking-tight text-[#172039] sm:text-6xl">
             Your{" "}
@@ -423,7 +439,7 @@ function Home() {
           </p>
           <form
             action="/exams"
-            className="mt-7 flex max-w-xl overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm"
+            className="mt-7 flex max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-[0_12px_30px_rgba(35,47,76,.10)]"
           >
             <input
               name="q"
@@ -431,14 +447,14 @@ function Home() {
               placeholder="Search exams, jobs, courses, and more..."
               className="min-w-0 flex-1 px-3 text-sm text-slate-700 outline-none"
             />
-            <button className="rounded-lg bg-[#ffbf13] px-5 py-2.5 text-sm font-bold text-slate-900">
-              Search
+            <button className="rounded-xl bg-[#ffbf13] px-5 py-2.5 text-sm font-bold text-slate-900">
+              Search <span aria-hidden="true">→</span>
             </button>
           </form>
           <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-slate-500">
-            <span>◉ Trusted &amp; Verified</span>
-            <span>◉ Personalised for You</span>
-            <span>◉ All in One Platform</span>
+            <span>✓ Official sources</span>
+            <span>✓ Deadline alerts</span>
+            <span>✓ Free to explore</span>
           </div>
         </div>
         <div className="relative hidden min-h-[440px] items-center justify-center overflow-hidden lg:flex">
@@ -465,6 +481,29 @@ function Home() {
             <span className="text-slate-500">Students</span>
             <b className="mt-1 block text-lg">1M+</b>
             <span className="text-slate-400">Trust Elevra</span>
+          </div>
+        </div>
+      </section>
+      <section className="mx-auto max-w-7xl px-5 pb-8 lg:px-8">
+        <div className="grid overflow-hidden rounded-2xl border border-[#1d2a45] bg-[#172039] text-white md:grid-cols-[1.4fr_1fr]">
+          <div className="p-5 sm:p-6">
+            <p className="text-xs font-bold tracking-[.16em] text-[#ffcf43]">DEADLINES THIS WEEK</p>
+            <h2 className="mt-2 text-xl font-extrabold">
+              Your next important date is closer than you think.
+            </h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Track applications and get a clear action plan in one place.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-px bg-[#34415a]">
+            <div className="bg-[#1d2941] p-5">
+              <p className="text-2xl font-extrabold text-[#ffcf43]">09</p>
+              <p className="mt-1 text-xs text-slate-300">open deadlines</p>
+            </div>
+            <Link href="/opportunities" className="bg-[#1d2941] p-5 transition hover:bg-[#263551]">
+              <p className="text-sm font-bold">Browse now</p>
+              <p className="mt-2 text-xs text-[#ffcf43]">See opportunities →</p>
+            </Link>
           </div>
         </div>
       </section>
@@ -528,8 +567,9 @@ function Home() {
                   <p className="text-xs font-semibold text-[#ef6657]">{deadline}</p>
                 </div>
               </div>
-              <div className="mt-4 border-t border-slate-100 pt-3 text-xs font-semibold text-[#ef6657]">
-                16 days left
+              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs font-semibold">
+                <span className="text-[#ef6657]">16 days left</span>
+                <span className="text-slate-500">View details →</span>
               </div>
             </Link>
           ))}

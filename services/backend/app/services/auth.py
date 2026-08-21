@@ -59,29 +59,42 @@ def get_current_user(
 
 
 def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> User:
-    if current_user.role not in {"admin", "super_admin"}:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin access required")
-    return current_user
+    if current_user.is_admin or current_user.role in {"admin", "super_admin"}:
+        return current_user
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin access required")
 
 
 def build_roles_and_permissions(user: User) -> tuple[list[str], list[str]]:
     roles = [user.role]
     permissions: list[str] = []
-    if user.role == "admin":
+    if user.is_admin or user.role == "admin":
+        roles = ["admin"]
         permissions.append("analytics:read")
     if user.role == "super_admin":
+        roles = ["super_admin"]
         permissions.extend(["analytics:read", "users:read", "opportunities:approve"])
     return roles, permissions
 
 
-def create_session_record(db: Session, user: User, *, refresh_token_value: str, request: Request | None = None) -> RefreshToken:
+def create_session_record(
+    db: Session,
+    user: User,
+    *,
+    refresh_token_value: str,
+    request: Request | None = None,
+    session_id: str | None = None,
+) -> RefreshToken:
     token_hash = hash_token_for_storage(refresh_token_value)
+    now = datetime.now(UTC)
     record = RefreshToken(
         user_id=user.id,
         token_hash=token_hash,
+        session_id=session_id or uuid.uuid4().hex,
         user_agent=(request.headers.get("user-agent") if request and request.headers else None)[:512] if request and request.headers.get("user-agent") else None,
         ip_address=(request.client.host if request and request.client else None),
-        expires_at=datetime.now(UTC) + timedelta(seconds=settings.refresh_token_ttl_seconds),
+        expires_at=now + timedelta(seconds=settings.refresh_token_ttl_seconds),
+        last_used_at=now,
+        updated_at=now,
     )
     db.add(record)
     db.flush()
@@ -89,6 +102,7 @@ def create_session_record(db: Session, user: User, *, refresh_token_value: str, 
 
 
 def issue_token_pair(db: Session, user: User, *, request: Request | None = None) -> dict[str, str | int]:
+    session_id = uuid.uuid4().hex
     access_token = create_access_token(
         str(user.id),
         {
@@ -96,10 +110,11 @@ def issue_token_pair(db: Session, user: User, *, request: Request | None = None)
             "name": user.name,
             "roles": [user.role],
             "permissions": build_roles_and_permissions(user)[1],
+            "sid": session_id,
         },
     )
-    refresh_token_value = create_refresh_token(str(user.id), {"sid": uuid.uuid4().hex})
-    create_session_record(db, user, refresh_token_value=refresh_token_value, request=request)
+    refresh_token_value = create_refresh_token(str(user.id), {"sid": session_id})
+    create_session_record(db, user, refresh_token_value=refresh_token_value, request=request, session_id=session_id)
     db.commit()
     return {
         "access_token": access_token,
@@ -126,18 +141,32 @@ def revoke_refresh_token(db: Session, refresh_token_value: str, *, user_id: str 
 def rotate_refresh_token(db: Session, refresh_token_value: str, *, request: Request | None = None) -> dict[str, str | int]:
     token_payload = decode_refresh_token(refresh_token_value)
     subject = str(token_payload.get("sub"))
+    session_id = str(token_payload.get("sid")) if token_payload.get("sid") is not None else None
     token_hash = hash_token_for_storage(refresh_token_value)
     refresh_record = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
     if refresh_record is None or refresh_record.user_id != subject:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="refresh token revoked or invalid")
-    revoked_at = _as_utc(refresh_record.revoked_at)
-    expires_at = _as_utc(refresh_record.expires_at)
-    if revoked_at or expires_at <= datetime.now(UTC):
+    if session_id is not None and refresh_record.session_id and refresh_record.session_id != session_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="refresh token revoked or invalid")
+    if refresh_record.revoked_at or _as_utc(refresh_record.expires_at) <= datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="refresh token revoked or invalid")
 
-    new_refresh_value = create_refresh_token(subject, {"sid": uuid.uuid4().hex})
-    refresh_record.revoked_at = datetime.now(UTC)
-    replacement = create_session_record(db, db.get(User, subject), refresh_token_value=new_refresh_value, request=request)
+    now = datetime.now(UTC)
+    new_session_id = uuid.uuid4().hex
+    new_refresh_value = create_refresh_token(subject, {"sid": new_session_id})
+    refresh_record.revoked_at = now
+    refresh_record.last_used_at = now
+    refresh_record.updated_at = now
+    replacement = create_session_record(
+        db,
+        db.get(User, subject),
+        refresh_token_value=new_refresh_value,
+        request=request,
+        session_id=new_session_id,
+    )
+    replacement.revoked_at = now
+    replacement.last_used_at = now
+    replacement.updated_at = now
     refresh_record.replaced_by = replacement.id
     user = refresh_record.user
     access_token = create_access_token(
@@ -147,6 +176,7 @@ def rotate_refresh_token(db: Session, refresh_token_value: str, *, request: Requ
             "name": user.name,
             "roles": [user.role],
             "permissions": build_roles_and_permissions(user)[1],
+            "sid": new_session_id,
         },
     )
     db.commit()

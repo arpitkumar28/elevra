@@ -52,16 +52,18 @@ export class ApiError extends Error {
     super(message);
   }
 }
-export function createApiClient({
-  baseUrl,
-  fetch: fetcher = fetch,
-}: ApiClientOptions) {
-  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+export function createApiClient({ baseUrl, fetch: fetcher = fetch }: ApiClientOptions) {
+  // The public deployment contract includes the API version, e.g.
+  // https://api.example.com/api/v1. Accept the old host-only value while
+  // applications transition without ever adding the version twice.
+  const normalizedBaseUrl = baseUrl.replace(/\/$/, "").endsWith("/api/v1")
+    ? baseUrl.replace(/\/$/, "")
+    : `${baseUrl.replace(/\/$/, "")}/api/v1`;
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
     try {
-      const response = await fetcher(`${normalizedBaseUrl}/api/v1${path}`, {
+      const response = await fetcher(`${normalizedBaseUrl}${path}`, {
         ...init,
         signal: controller.signal,
         headers: { "Content-Type": "application/json", ...init?.headers },
@@ -76,34 +78,24 @@ export function createApiClient({
       return response.status === 204 ? (undefined as T) : response.json();
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError(
-        "Unable to reach Elevra. Check your connection and try again.",
-      );
+      throw new ApiError("Unable to reach Elevra. Check your connection and try again.");
     } finally {
       clearTimeout(timer);
     }
   }
-  function query(
-    params: Record<string, string | number | boolean | undefined>,
-  ) {
+  function query(params: Record<string, string | number | boolean | undefined>) {
     const q = new URLSearchParams();
-    Object.entries(params).forEach(
-      ([k, v]) => v !== undefined && v !== "" && q.set(k, String(v)),
-    );
+    Object.entries(params).forEach(([k, v]) => v !== undefined && v !== "" && q.set(k, String(v)));
     return q.toString() ? `?${q}` : "";
   }
   return {
-    getHealth: () =>
-      fetcher(`${normalizedBaseUrl}/api/v1/health`).then((r) => r.json()),
-    listExams: (
-      params: Record<string, string | number | boolean | undefined> = {},
-    ) => request<Page<Exam>>(`/exams${query(params)}`),
+    getHealth: () => fetcher(`${normalizedBaseUrl}/health`).then((r) => r.json()),
+    listExams: (params: Record<string, string | number | boolean | undefined> = {}) =>
+      request<Page<Exam>>(`/exams${query(params)}`),
     getExam: (slug: string) => request<Exam>(`/exams/${slug}`),
-    listOpportunities: (
-      params: Record<string, string | number | boolean | undefined> = {},
-    ) => request<Page<Opportunity>>(`/opportunities${query(params)}`),
-    getOpportunity: (slug: string) =>
-      request<Opportunity>(`/opportunities/${slug}`),
+    listOpportunities: (params: Record<string, string | number | boolean | undefined> = {}) =>
+      request<Page<Opportunity>>(`/opportunities${query(params)}`),
+    getOpportunity: (slug: string) => request<Opportunity>(`/opportunities/${slug}`),
     createExam: (data: Partial<Exam>, token: string) =>
       request<Exam>("/exams", {
         method: "POST",
@@ -122,11 +114,7 @@ export function createApiClient({
         body: JSON.stringify(data),
         headers: { Authorization: `Bearer ${token}` },
       }),
-    updateOpportunity: (
-      id: string,
-      data: Partial<Opportunity>,
-      token: string,
-    ) =>
+    updateOpportunity: (id: string, data: Partial<Opportunity>, token: string) =>
       request<Opportunity>(`/opportunities/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),

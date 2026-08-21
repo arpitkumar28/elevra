@@ -15,6 +15,7 @@ from app.schemas.auth import (
     PasswordResetConfirm,
     PasswordResetRequest,
     RegisterRequest,
+    TokenRequest,
     TokenResponse,
 )
 from app.services.auth import (
@@ -69,7 +70,7 @@ def register(payload: RegisterRequest, db: Annotated[Session, Depends(get_db)]) 
 def login(payload: LoginRequest, db: Annotated[Session, Depends(get_db)]) -> TokenResponse:
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
 
     tokens = issue_token_pair(db, user)
     return TokenResponse(
@@ -85,7 +86,7 @@ def refresh(payload: RefreshTokenRequest, db: Annotated[Session, Depends(get_db)
     try:
         tokens = rotate_refresh_token(db, payload.refresh_token)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="refresh token revoked or invalid") from exc
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed") from exc
     except HTTPException:
         raise
 
@@ -117,19 +118,15 @@ def me(user: Annotated[User, Depends(get_current_user)]) -> dict[str, str]:
 def password_reset_request(payload: PasswordResetRequest, db: Annotated[Session, Depends(get_db)]) -> dict[str, str]:
     user = db.query(User).filter(User.email == payload.email).first()
     if user is not None:
-        raw_value = f"reset-{user.id}-{datetime.now(UTC).timestamp()}-{user.email}"
-        token = create_account_token(db, user, "password_reset", expires_in_hours=1)
-        token_value = raw_value
-        token.token_hash = hash_token_for_storage(token_value)
+        create_account_token(db, user, "password_reset", expires_in_hours=1)
         db.commit()
-        return {"message": f"Password reset token sent: {token_value}"}
-    return {"message": "Password reset token sent"}
+    return {"message": "If the account exists, a password reset email has been sent."}
 
 
 @router.post("/password-reset/confirm")
 def password_reset_confirm(payload: PasswordResetConfirm, db: Annotated[Session, Depends(get_db)]) -> dict[str, str]:
     token = db.query(AccountToken).filter(AccountToken.token_hash == hash_token_for_storage(payload.token)).first()
-    if token is None or token.expires_at <= datetime.now(UTC):
+    if token is None or token.used_at is not None or token.expires_at <= datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid or expired token")
     user = db.get(User, token.user_id)
     if user is None:
@@ -146,13 +143,13 @@ def verify_email_request(payload: PasswordResetRequest, db: Annotated[Session, D
     if user is not None:
         create_account_token(db, user, "email_verification", expires_in_hours=24)
         db.commit()
-    return {"message": "verification email sent"}
+    return {"message": "If the account exists, a verification email has been sent."}
 
 
 @router.post("/verify-email/confirm")
-def verify_email_confirm(payload: PasswordResetConfirm, db: Annotated[Session, Depends(get_db)]) -> dict[str, str]:
+def verify_email_confirm(payload: TokenRequest, db: Annotated[Session, Depends(get_db)]) -> dict[str, str]:
     token = db.query(AccountToken).filter(AccountToken.token_hash == hash_token_for_storage(payload.token)).first()
-    if token is None or token.expires_at <= datetime.now(UTC):
+    if token is None or token.used_at is not None or token.expires_at <= datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid or expired token")
     user = db.get(User, token.user_id)
     if user is None:

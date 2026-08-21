@@ -1,0 +1,49 @@
+name: Deploy database migrations
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - services/backend/alembic/**
+      - services/backend/app/models/**
+      - services/backend/requirements.txt
+      - .github/workflows/deploy-migrations.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate-staging:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r services/backend/requirements.txt
+      - run: alembic upgrade head
+        working-directory: services/backend
+        env:
+          ENVIRONMENT: staging
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ALEMBIC_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  migrate-production:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r services/backend/requirements.txt
+      - run: alembic upgrade head
+        working-directory: services/backend
+        env:
+          ENVIRONMENT: production
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ALEMBIC_DATABASE_URL: ${{ secrets.DATABASE_URL }}

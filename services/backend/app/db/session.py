@@ -12,8 +12,12 @@ engine_kwargs = {
     "pool_size": settings.db_pool_size,
     "max_overflow": settings.db_max_overflow,
     "pool_timeout": settings.db_pool_timeout,
-    "connect_args": {"connect_timeout": settings.db_connect_timeout},
 }
+if DATABASE_URL.startswith("postgresql"):
+    engine_kwargs["connect_args"] = {
+        "connect_timeout": settings.db_connect_timeout,
+        "sslmode": settings.supabase_sslmode,
+    }
 if os.getenv("USE_SQLITE_FOR_TESTS", "false").lower() == "true":
     DATABASE_URL = "sqlite:///:memory:"
     engine_kwargs = {"echo": False}

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
+import jwt
 import pytest
 
+from app.core.config import settings
+from app.infrastructure.security.jwt import create_access_token
 from app.models.user import User
 
 
@@ -23,6 +27,13 @@ def register_user(client, email: str = "student@example.com", password: str = "S
     )
     assert response.status_code == 200, response.text
     return response.json()
+
+
+def set_user_role(db, email: str, role: str):
+    user = db.query(User).filter(User.email == email).one()
+    user.role = role
+    db.commit()
+    return user
 
 
 def test_registration_and_login_flow(client, student_payload):
@@ -45,7 +56,16 @@ def test_duplicate_email_is_rejected(client):
         json={"name": "Other User", "email": "dup@example.com", "password": "SecurePass123"},
     )
     assert dup.status_code == 409
-    assert dup.json()["detail"] == "email already registered"
+    assert dup.json()["error"]["code"] == "EMAIL_ALREADY_REGISTERED"
+
+
+def test_weak_password_is_rejected(client):
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"name": "Weak User", "email": "weak@example.com", "password": "short"},
+    )
+    assert response.status_code == 422
+    assert "detail" in response.json()
 
 
 def test_invalid_password_rejected(client):
@@ -54,10 +74,10 @@ def test_invalid_password_rejected(client):
         json={"email": "missing@example.com", "password": "WrongPass123"},
     )
     assert response.status_code == 401
-    assert response.json()["detail"] == "invalid credentials"
+    assert response.json()["error"]["code"] == "AUTHENTICATION_FAILED"
 
 
-def test_refresh_rotation_and_logout(client):
+def test_refresh_rotation_and_logout(client, db):
     tokens = register_user(client)
     refresh = tokens["refresh_token"]
 
@@ -70,6 +90,13 @@ def test_refresh_rotation_and_logout(client):
     assert data["refresh_token"] != refresh
     assert data["access_token"]
 
+    replay = client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": refresh},
+    )
+    assert replay.status_code == 401
+    assert replay.json()["error"]["code"] == "REFRESH_TOKEN_INVALID"
+
     logout = client.post(
         "/api/v1/auth/logout",
         json={"refresh_token": data["refresh_token"]},
@@ -77,12 +104,31 @@ def test_refresh_rotation_and_logout(client):
     )
     assert logout.status_code == 200
 
-    replay = client.post(
+    revoked = client.post(
         "/api/v1/auth/refresh",
         json={"refresh_token": data["refresh_token"]},
     )
+    assert revoked.status_code == 401
+    assert revoked.json()["error"]["code"] == "REFRESH_TOKEN_INVALID"
+
+    assert db.query(User).filter(User.email == "student@example.com").one().role == "student"
+
+
+def test_refresh_replay_expired_and_revoked(client):
+    tokens = register_user(client, "refresh-flow@example.com", "SecurePass123")
+    refresh = tokens["refresh_token"]
+    refreshed = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh})
+    rotated = refreshed.json()["refresh_token"]
+    replay = client.post("/api/v1/auth/refresh", json={"refresh_token": rotated})
     assert replay.status_code == 401
-    assert replay.json()["detail"] == "refresh token revoked or invalid"
+
+    expired_payload = jwt.encode(
+        {"sub": "00000000-0000-4000-8000-000000000999", "iss": settings.jwt_issuer, "aud": settings.jwt_audience, "iat": int(datetime.now(UTC).timestamp()) - 3600, "nbf": int(datetime.now(UTC).timestamp()) - 3600, "exp": int(datetime.now(UTC).timestamp()) - 30, "type": "refresh"},
+        settings.jwt_secret + "-wrong",
+        algorithm="HS256",
+    )
+    expired = client.post("/api/v1/auth/refresh", json={"refresh_token": expired_payload})
+    assert expired.status_code == 401
 
 
 def test_password_reset_flow(client):
@@ -90,14 +136,20 @@ def test_password_reset_flow(client):
     register_user(client, email, "SecurePass123")
     request = client.post("/api/v1/auth/password-reset/request", json={"email": email})
     assert request.status_code == 200
-    token = request.json()["message"]
-    assert "token" in token.lower() or len(token) > 0
+    assert request.json()["message"] == "If the account exists, a password reset email has been sent."
 
     confirm = client.post(
         "/api/v1/auth/password-reset/confirm",
         json={"token": "invalid-token", "password": "NewPassword456"},
     )
     assert confirm.status_code == 400
+    assert confirm.json()["error"]["code"] == "INVALID_OR_EXPIRED_TOKEN"
+
+    second = client.post(
+        "/api/v1/auth/password-reset/confirm",
+        json={"token": "invalid-token", "password": "AnotherPass456"},
+    )
+    assert second.status_code == 400
 
 
 def test_email_verification_flow(client):
@@ -107,14 +159,18 @@ def test_email_verification_flow(client):
     assert request.status_code == 200
     assert "sent" in request.json()["message"].lower()
 
-    db_user = client.app.dependency_overrides.get(None)
-    assert db_user is None
+    confirm = client.post(
+        "/api/v1/auth/verify-email/confirm",
+        json={"token": "invalid-token"},
+    )
+    assert confirm.status_code == 400
+    assert confirm.json()["error"]["code"] == "INVALID_OR_EXPIRED_TOKEN"
 
 
 def test_protected_route_requires_authentication(client):
     response = client.get("/api/v1/auth/me")
     assert response.status_code == 401
-    assert response.json()["detail"] == "authentication required"
+    assert response.json()["error"]["code"] == "AUTHENTICATION_FAILED"
 
 
 def test_student_cannot_hit_admin_routes(client):
@@ -124,7 +180,7 @@ def test_student_cannot_hit_admin_routes(client):
         headers={"Authorization": f"Bearer {token['access_token']}"},
     )
     assert response.status_code == 403
-    assert response.json()["detail"] == "admin access required"
+    assert response.json()["error"]["code"] == "FORBIDDEN"
 
 
 def test_malformed_and_expired_jwt_are_rejected(client):
@@ -133,21 +189,73 @@ def test_malformed_and_expired_jwt_are_rejected(client):
         headers={"Authorization": "Bearer not-a-real-jwt"},
     )
     assert malformed.status_code == 401
-    assert malformed.json()["detail"] == "invalid token"
+    assert malformed.json()["error"]["code"] == "INVALID_TOKEN"
 
-    expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiZXhwIjoxNTE2MjM5MDIyfQ.0nJcGx5SEj5f5efmQjK2M2KxV3r5R6s5V0Qk3fXQ4xA"
+    expired_payload = jwt.encode(
+        {"sub": "00000000-0000-4000-8000-000000000123", "iss": settings.jwt_issuer, "aud": settings.jwt_audience, "iat": int(datetime.now(UTC).timestamp()) - 3600, "nbf": int(datetime.now(UTC).timestamp()) - 3600, "exp": int(datetime.now(UTC).timestamp()) - 30, "type": "access"},
+        settings.jwt_secret,
+        algorithm="HS256",
+    )
     expired = client.get(
         "/api/v1/auth/me",
-        headers={"Authorization": f"Bearer {expired_token}"},
+        headers={"Authorization": f"Bearer {expired_payload}"},
     )
     assert expired.status_code == 401
+    assert expired.json()["error"]["code"] == "INVALID_TOKEN"
+
+    invalid_signature_payload = jwt.encode(
+        {"sub": "00000000-0000-4000-8000-000000000456", "iss": settings.jwt_issuer, "aud": settings.jwt_audience, "iat": int(datetime.now(UTC).timestamp()), "nbf": int(datetime.now(UTC).timestamp()), "exp": int((datetime.now(UTC) + timedelta(minutes=15)).timestamp()), "type": "access"},
+        settings.jwt_secret + "-different",
+        algorithm="HS256",
+    )
+    invalid_signature = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {invalid_signature_payload}"},
+    )
+    assert invalid_signature.status_code == 401
+    assert invalid_signature.json()["error"]["code"] == "INVALID_TOKEN"
+
+
+def test_role_enforcement_and_privilege_escalation_attempts(client, db):
+    student = register_user(client, "student-role@example.com", "SecurePass123")
+    set_user_role(db, "student-role@example.com", "student")
+
+    admin = register_user(client, "admin-role@example.com", "SecurePass123")
+    set_user_role(db, "admin-role@example.com", "admin")
+
+    super_admin = register_user(client, "super-role@example.com", "SecurePass123")
+    set_user_role(db, "super-role@example.com", "super_admin")
+
+    student_response = client.get(
+        "/api/v1/admin/overview",
+        headers={"Authorization": f"Bearer {student['access_token']}"},
+    )
+    assert student_response.status_code == 403
+
+    admin_response = client.get(
+        "/api/v1/admin/overview",
+        headers={"Authorization": f"Bearer {admin['access_token']}"},
+    )
+    assert admin_response.status_code == 200
+
+    super_response = client.get(
+        "/api/v1/admin/overview",
+        headers={"Authorization": f"Bearer {super_admin['access_token']}"},
+    )
+    assert super_response.status_code == 200
+
+    privilege_attempt = client.post(
+        "/api/v1/auth/register",
+        json={"name": "Escalation", "email": "escalation@example.com", "password": "SecurePass123", "role": "admin"},
+    )
+    assert privilege_attempt.status_code == 422
 
 
 def test_rate_limiting_and_safe_error_responses(client):
-    for _ in range(10):
+    for i in range(8):
         response = client.post(
             "/api/v1/auth/login",
-            json={"email": "rate@example.com", "password": "WrongPass123"},
+            json={"email": f"rate{i}@example.com", "password": "WrongPass123"},
         )
     assert response.status_code in {401, 429}
 
@@ -156,4 +264,4 @@ def test_rate_limiting_and_safe_error_responses(client):
         json={"name": "x", "email": "not-an-email", "password": "Short1"},
     )
     assert bad_request.status_code == 422
-    assert "detail" in bad_request.json()
+    assert "error" in bad_request.json()

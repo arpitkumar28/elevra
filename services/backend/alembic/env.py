@@ -19,7 +19,7 @@ from app.models.exam_faq import ExamFAQ
 from app.models.opportunity import Opportunity
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+config.set_main_option("sqlalchemy.url", settings.alembic_database_url)
 if config.config_file_name is not None and config.file_config.has_section("formatters"):
     fileConfig(config.config_file_name)
 
