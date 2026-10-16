@@ -39,7 +39,7 @@ services/backend/.venv/bin/python -m pytest services/backend/tests/test_migratio
 docker compose -f docker-compose.migration-test.yml down
 ```
 
-The integration test is intentionally opt-in and does not drop or recreate a database. Run it only against the dedicated disposable service. The current migration graph is expected to fail the fresh-upgrade assertion; no successful PostgreSQL/pgvector run is claimed. Historical starting-state tests should be added only for states confirmed by database inventory.
+The normal unit suite can be run separately with `services/backend/.venv/bin/python -m pytest services/backend/tests -q -m 'not integration'`. Selecting the integration test without its URL fails explicitly; it never skips for a missing database setting. The test does not drop or recreate a database. Run it only against the dedicated disposable service. The current migration graph is expected to fail the fresh-upgrade assertion; no successful PostgreSQL/pgvector run is claimed. Historical starting-state tests should be added only for states confirmed by database inventory.
 
 ## Admin bootstrap boundary
 

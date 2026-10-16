@@ -7,6 +7,7 @@ The strict URL checks intentionally reject remote and non-test databases.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -38,7 +39,7 @@ TEST_URL_ENV = "ELEVRA_MIGRATION_TEST_DATABASE_URL"
 def _test_database_url() -> str:
     value = os.getenv(TEST_URL_ENV)
     if not value:
-        pytest.skip(f"set {TEST_URL_ENV} to run the disposable PostgreSQL migration test")
+        pytest.fail(f"{TEST_URL_ENV} is required; refusing to skip the PostgreSQL migration test")
 
     url = make_url(value)
     if (
@@ -57,6 +58,15 @@ def _type_signature(column_type, dialect) -> tuple[str, tuple[str, ...] | None]:
     if isinstance(column_type, SqlEnum):
         return column_type.name or "", tuple(column_type.enums)
     return column_type.compile(dialect=dialect), None
+
+
+def _redact_database_urls(output: str, database_url: str) -> str:
+    output = output.replace(database_url, "<redacted disposable database URL>")
+    return re.sub(
+        r"(?i)(postgres(?:ql)?(?:\+\w+)?://[^:/\s]+:)[^@/\s]+@",
+        r"\1<redacted>@",
+        output,
+    )
 
 
 @pytest.mark.integration
@@ -82,8 +92,8 @@ def test_fresh_postgres_pgvector_upgrade_matches_active_orm() -> None:
         )
         assert result.returncode == 0, (
             "Alembic upgrade head failed against the disposable database "
-            f"(exit {result.returncode}); command output is suppressed "
-            "to avoid leaking configuration"
+            f"(exit {result.returncode}). Sanitized output follows:\n"
+            f"{_redact_database_urls(result.stdout + result.stderr, database_url)}"
         )
 
         inspector = inspect(engine)

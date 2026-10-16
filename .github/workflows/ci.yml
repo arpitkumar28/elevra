@@ -28,6 +28,20 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: elevra_migration_test
+          POSTGRES_USER: elevra_test
+          POSTGRES_PASSWORD: ci-only-migration-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U elevra_test -d elevra_migration_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -35,9 +49,12 @@ jobs:
           python-version: '3.12'
       - run: pip install -r services/backend/requirements.txt
       - run: pip check
-      - run: pytest -q services/backend/tests
+      - run: pytest -q services/backend/tests -m "not integration"
         env:
           USE_SQLITE_FOR_TESTS: 'true'
+      - run: pytest -q services/backend/tests/test_migrations_postgres.py -m integration
+        env:
+          ELEVRA_MIGRATION_TEST_DATABASE_URL: postgresql+psycopg://elevra_test:ci-only-migration-test-password@localhost:5432/elevra_migration_test
       - run: alembic upgrade --sql head
         working-directory: services/backend
       - run: test "$(alembic heads | wc -l | tr -d ' ')" = 1
