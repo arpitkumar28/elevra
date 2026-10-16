@@ -11,6 +11,7 @@ from app.api.v1.profile import router as profile_router
 from app.api.v1.content import router as content_router
 from app.api.v1.tests import router as tests_router
 from app.api.v1.account import router as account_router
+from app.api.v1.admin_content import router as admin_content_router
 
 router = APIRouter()
 router.include_router(health_router)
@@ -24,3 +25,4 @@ router.include_router(opportunities_router)
 router.include_router(content_router)
 router.include_router(tests_router)
 router.include_router(account_router)
+router.include_router(admin_content_router)

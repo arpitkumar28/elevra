@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from enum import Enum
-from pydantic import BaseModel, ConfigDict, HttpUrl, constr
+from pydantic import BaseModel, ConfigDict, HttpUrl, constr, field_validator
 from typing import Optional
 
 Slug = constr(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", min_length=3, max_length=255)
@@ -34,6 +34,7 @@ class ExamCreate(ExamBase):
 
 class ExamUpdate(BaseModel):
     name: Optional[constr(strip_whitespace=True, min_length=2, max_length=255)] = None
+    slug: Optional[Slug] = None
     short_description: Optional[constr(strip_whitespace=True, max_length=512)] = None
     description: Optional[str] = None
     category: Optional["ExamCategory"] = None
@@ -47,6 +48,13 @@ class ExamUpdate(BaseModel):
     application_deadline: Optional[date] = None
     exam_date: Optional[date] = None
     result_date: Optional[date] = None
+
+    @field_validator("name", "slug", "category", mode="before")
+    @classmethod
+    def required_fields_cannot_be_null(cls, value):
+        if value is None:
+            raise ValueError("value cannot be null")
+        return value
 
 
 class ExamResponse(ExamBase):

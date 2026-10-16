@@ -106,17 +106,21 @@ def create_test(payload: TestWrite, request: Request, db: Annotated[Session, Dep
 
 
 @router.post("/admin/{test_id}/questions", status_code=status.HTTP_201_CREATED)
-def add_question(test_id: str, payload: QuestionWrite, db: Annotated[Session, Depends(get_db)], admin=Depends(require_admin)):
-    if not db.get(Test, test_id): raise HTTPException(status_code=404, detail="test not found")
+def add_question(test_id: str, payload: QuestionWrite, request: Request, db: Annotated[Session, Depends(get_db)], admin=Depends(require_admin)):
+    test = db.get(Test, test_id)
+    if not test: raise HTTPException(status_code=404, detail="test not found")
+    if test.status != "draft": raise HTTPException(status_code=409, detail="questions can only be added to a draft test")
     if sum(1 for option in payload.options if option.is_correct) != 1: raise HTTPException(status_code=422, detail="exactly one correct option is required")
     question = Question(test_id=test_id, text=payload.text, explanation=payload.explanation, position=payload.position); db.add(question); db.flush()
     for option in payload.options: db.add(QuestionOption(question_id=question.id, **option.model_dump()))
+    record_audit(db, action="CREATE_QUESTION", entity="test", entity_id=test.id, actor_id=admin.id, request=request)
     db.commit(); return {"id": question.id}
 
 
 @router.post("/admin/{test_id}/publish")
-def publish_test(test_id: str, db: Annotated[Session, Depends(get_db)], admin=Depends(require_admin)):
+def publish_test(test_id: str, request: Request, db: Annotated[Session, Depends(get_db)], admin=Depends(require_admin)):
     item = db.get(Test, test_id)
     if not item: raise HTTPException(status_code=404, detail="test not found")
     if not db.query(Question.id).filter(Question.test_id == test_id).first(): raise HTTPException(status_code=409, detail="test requires questions")
-    item.status = "published"; db.commit(); return {"id": item.id, "status": item.status}
+    if item.status != "draft": raise HTTPException(status_code=409, detail="only draft tests can be published")
+    item.status = "published"; record_audit(db, action="PUBLISH", entity="test", entity_id=item.id, actor_id=admin.id, request=request); db.commit(); return {"id": item.id, "status": item.status}

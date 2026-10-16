@@ -1,8 +1,9 @@
+from datetime import UTC, datetime
 from math import ceil
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,8 @@ from app.db.session import get_db
 from app.models.opportunity import Opportunity, OpportunityStatus, OpportunityType
 from app.schemas.opportunity import OpportunityCreate, OpportunityPage, OpportunityResponse, OpportunityUpdate
 from app.services.auth import require_admin
+from app.services.audit import record_audit
+from app.models.platform import Application, Bookmark
 
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 
@@ -62,32 +65,44 @@ def get_opportunity(slug: str, db: Annotated[Session, Depends(get_db)]):
 
 
 @router.post("", response_model=OpportunityResponse, status_code=status.HTTP_201_CREATED)
-def create_opportunity(payload: OpportunityCreate, db: Annotated[Session, Depends(get_db)], _admin=Depends(require_admin)):
+def create_opportunity(payload: OpportunityCreate, request: Request, db: Annotated[Session, Depends(get_db)], admin=Depends(require_admin)):
     if db.query(Opportunity.id).filter(Opportunity.slug == payload.slug).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="slug already exists")
     opportunity = Opportunity(**_opportunity_values(payload))
     db.add(opportunity)
+    db.flush()
+    record_audit(db, action="CREATE", entity="opportunity", entity_id=opportunity.id, actor_id=admin.id, request=request)
     db.commit()
     db.refresh(opportunity)
     return opportunity
 
 
 @router.patch("/{opportunity_id}", response_model=OpportunityResponse)
-def update_opportunity(opportunity_id: UUID, payload: OpportunityUpdate, db: Annotated[Session, Depends(get_db)], _admin=Depends(require_admin)):
+def update_opportunity(opportunity_id: UUID, payload: OpportunityUpdate, request: Request, db: Annotated[Session, Depends(get_db)], admin=Depends(require_admin)):
     opportunity = db.query(Opportunity).filter(Opportunity.id == str(opportunity_id)).first()
     if not opportunity:
         raise HTTPException(status_code=404, detail="opportunity not found")
     for key, value in _opportunity_values(payload, partial=True).items():
         setattr(opportunity, key, value)
+    if "verified" in payload.model_fields_set:
+        opportunity.verified_at = datetime.now(UTC) if opportunity.verified else None
+    if "status" in payload.model_fields_set and opportunity.status == OpportunityStatus.published:
+        opportunity.published_at = datetime.now(UTC)
+    record_audit(db, action="UPDATE", entity="opportunity", entity_id=opportunity.id, actor_id=admin.id, request=request)
     db.commit()
     db.refresh(opportunity)
     return opportunity
 
 
 @router.delete("/{opportunity_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_opportunity(opportunity_id: UUID, db: Annotated[Session, Depends(get_db)], _admin=Depends(require_admin)) -> None:
+def delete_opportunity(opportunity_id: UUID, request: Request, db: Annotated[Session, Depends(get_db)], admin=Depends(require_admin)) -> None:
     opportunity = db.query(Opportunity).filter(Opportunity.id == str(opportunity_id)).first()
     if not opportunity:
         raise HTTPException(status_code=404, detail="opportunity not found")
+    linked = db.query(Application.id).filter(Application.opportunity_id == opportunity.id).first()
+    bookmarked = db.query(Bookmark.id).filter(Bookmark.entity_id == opportunity.id).first()
+    if linked or bookmarked:
+        raise HTTPException(status_code=409, detail="opportunity has student records; archive it instead")
+    record_audit(db, action="DELETE", entity="opportunity", entity_id=opportunity.id, actor_id=admin.id, request=request)
     db.delete(opportunity)
     db.commit()

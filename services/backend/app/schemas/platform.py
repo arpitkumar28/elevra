@@ -29,6 +29,13 @@ class CourseUpdate(CourseWrite):
     slug: str | None = Field(default=None, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     provider: str | None = Field(default=None, min_length=2, max_length=255)
 
+    @field_validator("title", "slug", "provider", mode="before")
+    @classmethod
+    def required_course_fields_cannot_be_null(cls, value):
+        if value is None:
+            raise ValueError("value cannot be null")
+        return value
+
 
 class CourseRead(CourseWrite):
     model_config = ConfigDict(from_attributes=True)
@@ -56,6 +63,13 @@ class CurrentAffairUpdate(CurrentAffairWrite):
     category: str | None = Field(default=None, min_length=2, max_length=100)
     source: str | None = Field(default=None, min_length=2, max_length=255)
 
+    @field_validator("title", "slug", "summary", "content", "category", "source", mode="before")
+    @classmethod
+    def required_affair_fields_cannot_be_null(cls, value):
+        if value is None:
+            raise ValueError("value cannot be null")
+        return value
+
 
 class CurrentAffairRead(CurrentAffairWrite):
     model_config = ConfigDict(from_attributes=True)
@@ -72,6 +86,34 @@ class TestWrite(BaseModel):
     description: str | None = None
     type: TestType
     duration_minutes: int = Field(ge=1, le=600)
+
+
+class TestUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=255)
+    slug: str | None = Field(default=None, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    description: str | None = None
+    type: TestType | None = None
+    duration_minutes: int | None = Field(default=None, ge=1, le=600)
+
+    @field_validator("title", "slug", "type", "duration_minutes", mode="before")
+    @classmethod
+    def required_test_fields_cannot_be_null(cls, value):
+        if value is None:
+            raise ValueError("value cannot be null")
+        return value
+
+
+class TestAdminRead(BaseModel):
+    id: str
+    title: str
+    slug: str
+    description: str | None = None
+    type: TestType
+    duration_minutes: int
+    status: Literal["draft", "published"]
+    created_at: datetime
+    updated_at: datetime
+    questions: list[dict] = Field(default_factory=list)
 
 
 class QuestionOptionWrite(BaseModel):

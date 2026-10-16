@@ -29,7 +29,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   ["Overview", "/dashboard"],
                   ["Opportunities", "/opportunities"],
                   ["Exams", "/exams"],
-                  ["Verification", "/verification"],
+                ["Draft & review queue", "/queue"],
+                ["Courses", "/courses"],
+                ["Current affairs", "/current-affairs"],
+                ["Practice tests", "/tests"],
                 ].map(([label, href]) => (
                   <Link
                     key={href}

@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from enum import Enum
-from pydantic import BaseModel, ConfigDict, HttpUrl, constr
+from pydantic import BaseModel, ConfigDict, HttpUrl, constr, field_validator
 from typing import Optional
 
 
@@ -43,6 +43,8 @@ class OpportunityCreate(OpportunityBase):
 
 class OpportunityUpdate(BaseModel):
     title: Optional[constr(strip_whitespace=True, min_length=2, max_length=255)] = None
+    slug: Optional[constr(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", min_length=3, max_length=255)] = None
+    type: Optional[OpportunityType] = None
     description: Optional[str] = None
     eligibility: Optional[str] = None
     location: Optional[constr(strip_whitespace=True, max_length=255)] = None
@@ -50,6 +52,13 @@ class OpportunityUpdate(BaseModel):
     deadline: Optional[date] = None
     status: Optional[OpportunityStatus] = None
     verified: Optional[bool] = None
+
+    @field_validator("title", "slug", "type", mode="before")
+    @classmethod
+    def required_fields_cannot_be_null(cls, value):
+        if value is None:
+            raise ValueError("value cannot be null")
+        return value
 
 
 class OpportunityResponse(OpportunityBase):

@@ -94,6 +94,28 @@ export type TestSummary = {
   description?: string;
   type: string;
   duration_minutes: number;
+  status?: string;
+};
+export type AdminContentKind = "exams" | "opportunities" | "courses" | "current-affairs" | "tests";
+export type AdminContentPage<T> = Page<T>;
+export type AdminQueueItem = {
+  kind: AdminContentKind;
+  id: string;
+  slug: string;
+  title: string;
+  status: string;
+  created_at: string;
+};
+export type AdminTestDetail = TestSummary & {
+  created_at: string;
+  updated_at: string;
+  questions: Array<{
+    id: string;
+    text: string;
+    explanation?: string;
+    position: number;
+    options: Array<{ id: string; text: string; position: number; is_correct: boolean }>;
+  }>;
 };
 export type TestDetail = TestSummary & {
   questions: Array<{
@@ -346,6 +368,61 @@ export function createApiClient({ baseUrl, fetch: fetcher = fetch }: ApiClientOp
       request<Opportunity>(`/opportunities/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    listAdminContent: <T>(
+      kind: AdminContentKind,
+      params: Record<string, string | number | undefined>,
+      token: string,
+    ) =>
+      request<AdminContentPage<T>>(`/admin/content/${kind}${query(params)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    getAdminContent: <T>(kind: AdminContentKind, id: string, token: string) =>
+      request<T>(`/admin/content/${kind}/${encodeURIComponent(id)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    createAdminContent: <T>(kind: AdminContentKind, data: Record<string, unknown>, token: string) =>
+      request<T>(`/admin/content/${kind}`, {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    updateAdminContent: <T>(kind: AdminContentKind, id: string, data: Record<string, unknown>, token: string) =>
+      request<T>(`/admin/content/${kind}/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    adminContentAction: <T>(kind: AdminContentKind, id: string, action: string, token: string) =>
+      request<T>(`/admin/content/${kind}/${encodeURIComponent(id)}/actions/${action}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    listAdminQueue: (params: Record<string, string | number | undefined>, token: string) =>
+      request<AdminContentPage<AdminQueueItem>>(`/admin/content/queue${query(params)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    deleteAdminContent: (kind: AdminContentKind, id: string, token: string) =>
+      request<void>(`/admin/content/${kind}/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    addAdminTestQuestion: (testId: string, data: Record<string, unknown>, token: string) =>
+      request<{ id: string }>(`/admin/content/tests/${encodeURIComponent(testId)}/questions`, {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    updateAdminTestQuestion: (testId: string, questionId: string, data: Record<string, unknown>, token: string) =>
+      request<{ id: string }>(`/admin/content/tests/${encodeURIComponent(testId)}/questions/${encodeURIComponent(questionId)}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    deleteAdminTestQuestion: (testId: string, questionId: string, token: string) =>
+      request<void>(`/admin/content/tests/${encodeURIComponent(testId)}/questions/${encodeURIComponent(questionId)}`, {
+        method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       }),
   };
