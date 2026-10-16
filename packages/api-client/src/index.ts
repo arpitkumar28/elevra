@@ -225,7 +225,15 @@ export function createApiClient({ baseUrl, fetch: fetcher = fetch }: ApiClientOp
       return response.status === 204 ? (undefined as T) : response.json();
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError("Unable to reach Elevra. Check your connection and try again.");
+      if (error instanceof DOMException && error.name === "AbortError") {
+        throw new ApiError("The request to Elevra timed out. Check your connection and try again.");
+      }
+      if (error instanceof TypeError) {
+        throw new ApiError(
+          "Unable to reach Elevra. Check your connection, API URL, and the backend CORS allowlist.",
+        );
+      }
+      throw new ApiError("The Elevra request could not be completed. Please try again.");
     } finally {
       clearTimeout(timer);
     }
@@ -388,7 +396,12 @@ export function createApiClient({ baseUrl, fetch: fetcher = fetch }: ApiClientOp
         body: JSON.stringify(data),
         headers: { Authorization: `Bearer ${token}` },
       }),
-    updateAdminContent: <T>(kind: AdminContentKind, id: string, data: Record<string, unknown>, token: string) =>
+    updateAdminContent: <T>(
+      kind: AdminContentKind,
+      id: string,
+      data: Record<string, unknown>,
+      token: string,
+    ) =>
       request<T>(`/admin/content/${kind}/${encodeURIComponent(id)}`, {
         method: "PATCH",
         body: JSON.stringify(data),
@@ -414,16 +427,27 @@ export function createApiClient({ baseUrl, fetch: fetcher = fetch }: ApiClientOp
         body: JSON.stringify(data),
         headers: { Authorization: `Bearer ${token}` },
       }),
-    updateAdminTestQuestion: (testId: string, questionId: string, data: Record<string, unknown>, token: string) =>
-      request<{ id: string }>(`/admin/content/tests/${encodeURIComponent(testId)}/questions/${encodeURIComponent(questionId)}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-        headers: { Authorization: `Bearer ${token}` },
-      }),
+    updateAdminTestQuestion: (
+      testId: string,
+      questionId: string,
+      data: Record<string, unknown>,
+      token: string,
+    ) =>
+      request<{ id: string }>(
+        `/admin/content/tests/${encodeURIComponent(testId)}/questions/${encodeURIComponent(questionId)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(data),
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      ),
     deleteAdminTestQuestion: (testId: string, questionId: string, token: string) =>
-      request<void>(`/admin/content/tests/${encodeURIComponent(testId)}/questions/${encodeURIComponent(questionId)}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      }),
+      request<void>(
+        `/admin/content/tests/${encodeURIComponent(testId)}/questions/${encodeURIComponent(questionId)}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      ),
   };
 }

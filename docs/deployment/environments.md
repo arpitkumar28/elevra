@@ -26,7 +26,13 @@ sent to the browser. Do not put `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`,
 Render reads its service definitions from [`render.yaml`](../../render.yaml).
 Configure `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, and `CORS_ORIGINS` as
 secret Render environment variables. `CORS_ORIGINS` must be the comma-separated
-Vercel origins for that environment; wildcard origins are not used.
+Vercel origins for that environment, including both the student web app and
+admin app when both call the API. For the current production admin deployment,
+include the exact origin `https://elevra-admin-dun.vercel.app` alongside the
+production web origin. Configure corresponding staging origins separately.
+Wildcard origins are not used. After changing this Render setting, redeploy or
+restart the backend and verify a credentialed `OPTIONS` preflight from each
+frontend origin succeeds.
 
 `GET /api/v1/health` is a process health check. `GET /api/v1/health/ready`
 checks PostgreSQL and Redis and returns `503` without connection details when a
