@@ -46,10 +46,10 @@ export default function AdminPage({ params }: { params: { slug?: string[] } }) {
         </div>
         <div className="grid gap-4 md:grid-cols-4">
           {[
-            ["Published exams", exams.length],
-            ["Published opportunities", opps.length],
-            ["Pending verification", pending.length],
-            ["Upcoming deadlines", opps.filter((o) => o.deadline).length],
+            ["Exams returned (max 20)", exams.length],
+            ["Opportunities returned (max 20)", opps.length],
+            ["Unverified loaded records", pending.length],
+            ["Loaded items with deadlines", opps.filter((o) => o.deadline).length],
           ].map(([label, n]) => (
             <Panel key={String(label)} title={String(label)}>
               <p className="text-3xl font-bold">{n}</p>
@@ -73,7 +73,7 @@ export default function AdminPage({ params }: { params: { slug?: string[] } }) {
               <div className="rounded-xl border p-4" key={x.id}>
                 <b>{"name" in x ? x.name : x.title}</b>
                 <p className="mt-1 text-sm text-slate-600">
-                  Status: New · Source verification required
+                  Status: {x.status} · Source verification required
                 </p>
                 <p className="text-xs text-slate-500">
                   Verification actions require the existing authenticated admin API.
@@ -86,7 +86,15 @@ export default function AdminPage({ params }: { params: { slug?: string[] } }) {
         )}
       </Panel>
     );
-  const records = route === "exams" ? exams : route === "opportunities" ? opps : [];
+  if (route !== "exams" && route !== "opportunities")
+    return (
+      <Panel title={`${nice(route)} is unavailable`}>
+        <p className="text-slate-600">
+          This section does not have a connected API view in the current admin application.
+        </p>
+      </Panel>
+    );
+  const records = route === "exams" ? exams : opps;
   const label = route === "exams" ? "Exam" : "Opportunity";
   return (
     <div className="space-y-6">
@@ -98,12 +106,12 @@ export default function AdminPage({ params }: { params: { slug?: string[] } }) {
         <button
           disabled
           title="Requires authenticated admin session"
-          className="rounded-xl bg-[#F5C542] px-4 py-2 font-bold text-slate-900 opacity-70"
+          className="rounded-xl bg-[#145b48] px-4 py-2 font-bold text-white opacity-60"
         >
           Create {label}
         </button>
       </div>
-      <Panel title={`Published ${nice(route)}`}>
+      <Panel title={`${nice(route)} returned by API`}>
         {records.length ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -119,7 +127,7 @@ export default function AdminPage({ params }: { params: { slug?: string[] } }) {
                 {records.map((x) => (
                   <tr className="border-b" key={x.id}>
                     <td className="py-4 font-medium">{"name" in x ? x.name : x.title}</td>
-                    <td>Published</td>
+                    <td>{x.status}</td>
                     <td>{x.verified ? "Verified" : "New"}</td>
                     <td>
                       <button

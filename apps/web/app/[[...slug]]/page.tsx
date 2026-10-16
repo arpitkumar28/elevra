@@ -2,7 +2,14 @@
 import Link from "next/link";
 import * as React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { createApiClient, ApiError, type Exam, type Opportunity } from "@elevra/api-client";
+import {
+  createApiClient,
+  ApiError,
+  type Exam,
+  type Opportunity,
+  type Course,
+  type CurrentAffair,
+} from "@elevra/api-client";
 
 const apiClient = createApiClient({
   baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1",
@@ -253,7 +260,7 @@ function Detail({
   if (error)
     return (
       <main className="mx-auto max-w-4xl px-5 py-12">
-        <State message={error} />
+        <State message={error} retry={() => location.reload()} />
       </main>
     );
   if (!item)
@@ -379,200 +386,266 @@ function Detail({
   );
 }
 function Home() {
-  const categories: Array<[string, string, string, string]> = [
-    ["▤", "Exams", "250+ Exams", "/exams"],
-    ["▣", "Jobs", "25K+ Jobs", "/opportunities?type=job"],
-    ["⌁", "Internships", "15K+ Opportunities", "/opportunities?type=internship"],
-    ["✿", "Scholarships", "8K+ Scholarships", "/opportunities?type=scholarship"],
-    ["▦", "Hackathons", "2K+ Events", "/opportunities?type=hackathon"],
-    ["♜", "Test Series", "5K+ Tests", "/career"],
-    ["▰", "Courses", "3K+ Courses", "/career"],
-    ["▧", "Current Affairs", "Daily Updates", "/career"],
-  ];
-  const trending: Array<[string, string, string, string, string]> = [
-    ["🏛️", "UPSC CSE 2025", "Apply before", "22 May 2025", "/exams"],
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    Promise.all([
+      apiClient.listExams({ page_size: 3 }),
+      apiClient.listOpportunities({ page_size: 3 }),
+    ])
+      .then(([examPage, opportunityPage]) => {
+        setExams(examPage.items);
+        setOpportunities(opportunityPage.items);
+      })
+      .catch((e: ApiError) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const areas = [
     [
-      "G",
-      "Google Summer Internship 2025",
-      "Apply before",
-      "15 May 2025",
-      "/opportunities?type=internship",
+      "01",
+      "Exams & preparation",
+      "Understand exam dates, eligibility and official sources in one place.",
+      "/exams",
+      "Browse exams",
     ],
-    ["GATE", "GATE 2026 Registration", "Apply before", "31 May 2025", "/exams"],
-    ["⚕", "JNVU Research Fellowship 2025", "Apply before", "10 May 2025", "/opportunities"],
+    [
+      "02",
+      "Career opportunities",
+      "Explore jobs, internships, scholarships and competitions.",
+      "/explore",
+      "Explore opportunities",
+    ],
+    [
+      "03",
+      "Learning resources",
+      "Find courses and current affairs to support your next step.",
+      "/courses",
+      "Explore resources",
+    ],
+    [
+      "04",
+      "Practice & progress",
+      "Build a steady preparation routine with available tests.",
+      "/tests",
+      "View practice tests",
+    ],
   ];
+
   return (
     <main>
-      <section className="border-b border-amber-100 bg-[#fff7d9]">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 overflow-auto px-5 py-2 text-xs font-semibold text-slate-700 lg:px-8">
-          <span className="shrink-0 rounded-full bg-[#172039] px-2.5 py-1 text-white">
-            LIVE UPDATES
-          </span>
-          <span className="shrink-0">UPSC CSE notification is out</span>
-          <span className="hidden text-amber-700 sm:inline">•</span>
-          <span className="hidden shrink-0 sm:inline">Never miss an application deadline</span>
-          <Link
-            href="/exams"
-            className="ml-auto shrink-0 text-[#aa7000] underline underline-offset-2"
-          >
-            View all updates
-          </Link>
-        </div>
-      </section>
-      <section className="mx-auto grid max-w-7xl overflow-hidden px-5 pb-9 pt-4 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:pt-8">
-        <div className="relative z-10 py-8 lg:py-16">
-          <p className="mb-5 flex items-center gap-2 text-sm font-bold uppercase tracking-[.18em] text-[#e5a300]">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" /> India&apos;s opportunity hub
+      <section className="mx-auto grid max-w-7xl gap-10 px-5 pb-16 pt-12 lg:grid-cols-[1.1fr_.9fr] lg:px-8 lg:pb-24 lg:pt-20">
+        <div className="relative z-10">
+          <p className="mb-5 flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-[#145b48]">
+            <span className="h-2 w-2 rounded-full bg-[#7fae68]" /> A clearer way forward
           </p>
-          <h1 className="max-w-xl text-4xl font-extrabold leading-[1.08] tracking-tight text-[#172039] sm:text-6xl">
-            Your{" "}
-            <span className="text-[#f4aa00]">
-              Career &amp;
-              <br />
-              Exam
-            </span>{" "}
-            Companion
+          <h1 className="max-w-2xl text-5xl font-semibold leading-[1.04] tracking-[-.045em] text-[#14231f] sm:text-6xl lg:text-7xl">
+            Your Career &amp; Exam <span className="text-[#668b59]">Companion.</span>
           </h1>
-          <p className="mt-5 max-w-lg text-base leading-7 text-slate-500">
-            Discover opportunities, prepare smarter, and build your future with everything you need
-            in one place.
+          <p className="mt-6 max-w-xl text-lg leading-8 text-[#63736c]">
+            Your next chapter starts here. Find trusted opportunities, make sense of exam
+            information, and move forward with confidence.
           </p>
           <form
-            action="/exams"
-            className="mt-7 flex max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-[0_12px_30px_rgba(35,47,76,.10)]"
+            action="/explore"
+            className="mt-8 flex max-w-xl overflow-hidden rounded-2xl border border-[#d8e1da] bg-white p-1.5 shadow-sm"
           >
+            <label className="sr-only" htmlFor="home-search">
+              Search opportunities and exams
+            </label>
             <input
+              id="home-search"
               name="q"
-              aria-label="Search exams, jobs, courses and more"
-              placeholder="Search exams, jobs, courses, and more..."
-              className="min-w-0 flex-1 px-3 text-sm text-slate-700 outline-none"
+              placeholder="What are you looking for?"
+              className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm outline-none"
             />
-            <button className="rounded-xl bg-[#ffbf13] px-5 py-2.5 text-sm font-bold text-slate-900">
+            <button className="rounded-xl bg-[#145b48] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#103f34]">
               Search <span aria-hidden="true">→</span>
             </button>
           </form>
-          <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-slate-500">
-            <span>✓ Official sources</span>
-            <span>✓ Deadline alerts</span>
-            <span>✓ Free to explore</span>
+          <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#63736c]">
+            <span>Curated information</span>
+            <span>Official sources</span>
+            <span>Free to explore</span>
+          </div>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link
+              href="/explore"
+              className="rounded-xl bg-[#d4edaa] px-5 py-3 text-sm font-bold text-[#173b2f] transition hover:bg-[#c3e291]"
+            >
+              Explore opportunities <span aria-hidden="true">↗</span>
+            </Link>
+            <Link
+              href="/exams"
+              className="rounded-xl border border-[#cbd8ce] px-5 py-3 text-sm font-semibold text-[#28483b] transition hover:bg-white"
+            >
+              Find an exam
+            </Link>
           </div>
         </div>
-        <div className="relative hidden min-h-[440px] items-center justify-center overflow-hidden lg:flex">
-          <div className="hero-orb absolute right-0 top-8 h-72 w-72 rounded-full bg-[#ffe59a]" />
-          <div className="absolute right-16 top-4 h-28 w-28 rounded-full bg-[#ffbf13] opacity-80" />
-          <div className="grid-dot absolute right-16 top-32 h-16 w-16" />
-          <div className="relative mt-8 h-72 w-60 overflow-hidden rounded-[7rem_7rem_2.5rem_2.5rem] bg-gradient-to-b from-[#ffe7b1] to-[#f9c83e] shadow-2xl">
-            <div className="absolute inset-x-8 top-10 h-24 rounded-[50%] bg-[#f7c289]" />
-            <div className="absolute inset-x-7 top-7 h-32 rounded-t-[50%] bg-[#1e273a]" />
-            <div className="absolute bottom-0 left-5 right-5 h-36 rounded-t-[2rem] bg-[#f4a900]" />
-            <div className="absolute bottom-7 left-10 right-10 h-14 rounded-lg bg-slate-800 shadow-xl" />
-          </div>
-          <div className="soft-card absolute left-2 top-24 rounded-xl bg-white px-4 py-3 text-xs">
-            <span className="text-slate-500">Opportunities</span>
-            <b className="mt-1 block text-lg">12.6K+</b>
-            <span className="text-slate-400">Live Opportunities</span>
-          </div>
-          <div className="soft-card absolute left-14 bottom-14 rounded-xl bg-white px-4 py-3 text-xs">
-            <span className="text-slate-500">Exams</span>
-            <b className="mt-1 block text-lg">250+</b>
-            <span className="text-slate-400">Exams Covered</span>
-          </div>
-          <div className="soft-card absolute right-2 bottom-5 rounded-xl bg-white px-4 py-3 text-xs">
-            <span className="text-slate-500">Students</span>
-            <b className="mt-1 block text-lg">1M+</b>
-            <span className="text-slate-400">Trust Elevra</span>
-          </div>
-        </div>
-      </section>
-      <section className="mx-auto max-w-7xl px-5 pb-8 lg:px-8">
-        <div className="grid overflow-hidden rounded-2xl border border-[#1d2a45] bg-[#172039] text-white md:grid-cols-[1.4fr_1fr]">
-          <div className="p-5 sm:p-6">
-            <p className="text-xs font-bold tracking-[.16em] text-[#ffcf43]">DEADLINES THIS WEEK</p>
-            <h2 className="mt-2 text-xl font-extrabold">
-              Your next important date is closer than you think.
-            </h2>
-            <p className="mt-2 text-sm text-slate-300">
-              Track applications and get a clear action plan in one place.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-px bg-[#34415a]">
-            <div className="bg-[#1d2941] p-5">
-              <p className="text-2xl font-extrabold text-[#ffcf43]">09</p>
-              <p className="mt-1 text-xs text-slate-300">open deadlines</p>
+        <div className="relative min-h-[310px] overflow-hidden rounded-[2rem] bg-[#e9efe4] p-6 sm:min-h-[410px] lg:p-9">
+          <div className="absolute -right-10 -top-16 h-64 w-64 rounded-full bg-[#d4edaa]" />
+          <div className="absolute bottom-0 right-0 h-3/5 w-3/5 rounded-tl-[9rem] bg-[#c1d4b8]" />
+          <div className="absolute bottom-0 left-0 h-2/5 w-2/5 rounded-tr-[8rem] bg-[#d7dfd1]" />
+          <div className="relative flex h-full min-h-[270px] flex-col justify-between sm:min-h-[350px]">
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[.14em] text-[#42634e]">
+              <span>Make room for possibility</span>
+              <span>Elevra / 01</span>
             </div>
-            <Link href="/opportunities" className="bg-[#1d2941] p-5 transition hover:bg-[#263551]">
-              <p className="text-sm font-bold">Browse now</p>
-              <p className="mt-2 text-xs text-[#ffcf43]">See opportunities →</p>
-            </Link>
+            <div className="self-end rounded-2xl border border-white/80 bg-white/90 p-5 shadow-[0_18px_50px_rgba(31,62,44,.12)] sm:max-w-[285px]">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#6b8a60]">
+                Your journey, organised
+              </span>
+              <p className="mt-3 text-2xl font-semibold leading-tight tracking-tight">
+                Find the information. Choose your direction.
+              </p>
+              <Link href="/career" className="mt-5 inline-flex text-sm font-bold text-[#145b48]">
+                Start exploring <span className="ml-2">→</span>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
-      <section className="mx-auto max-w-7xl px-5 pb-8 lg:px-8">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-extrabold">Explore Top Categories</h2>
-          <Link href="/exams" className="text-sm font-semibold text-slate-500 hover:text-[#d99400]">
-            View all →
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-          {categories.map(([icon, title, count, href]) => (
-            <Link
-              href={href as "/exams"}
-              key={title}
-              className="soft-card rounded-xl border border-slate-100 bg-white p-3 text-center transition hover:-translate-y-1 hover:border-amber-200"
-            >
-              <span className="mx-auto grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-lg text-[#e4a000]">
-                {icon}
-              </span>
-              <h3 className="mt-2 text-sm font-bold">{title}</h3>
-              <p className="mt-1 text-[10px] text-slate-400">{count}</p>
-            </Link>
-          ))}
-        </div>
-      </section>
-      <section className="mx-auto max-w-7xl px-5 pb-16 pt-5 lg:px-8">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-extrabold">Trending Now</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Don&apos;t miss the most popular opportunities this week.
+
+      <section className="border-y border-[#e3e9e4] bg-white py-16">
+        <div className="mx-auto max-w-7xl px-5 lg:px-8">
+          <div className="mb-8 max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">
+              One companion, many next steps
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+              Everything you need to keep moving.
+            </h2>
+            <p className="mt-3 leading-7 text-[#63736c]">
+              A single place to discover, prepare and plan—at your own pace.
             </p>
           </div>
-          <Link href="/opportunities" className="text-sm font-semibold text-[#d99400]">
-            View all →
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {areas.map(([number, title, copy, href, action]) => (
+              <Link
+                key={title}
+                href={href as "/exams"}
+                className="group rounded-2xl border border-[#e3e9e4] bg-[#fbfcf9] p-5 transition hover:-translate-y-1 hover:border-[#b7c9b8] hover:bg-white hover:shadow-lg"
+              >
+                <span className="text-xs font-bold tracking-widest text-[#78936c]">{number}</span>
+                <h3 className="mt-8 text-lg font-semibold">{title}</h3>
+                <p className="mt-2 min-h-[72px] text-sm leading-6 text-[#63736c]">{copy}</p>
+                <span className="mt-5 inline-block text-sm font-bold text-[#145b48]">
+                  {action} <span aria-hidden="true">→</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 py-16 lg:px-8">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">
+              Explore what’s available
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-tight">A good place to begin.</h2>
+          </div>
+          <Link href="/explore" className="text-sm font-bold text-[#145b48]">
+            See all opportunities →
           </Link>
         </div>
-        <div className="mb-4 flex gap-2 overflow-auto pb-1 text-sm">
-          <span className="rounded-full bg-[#ffedbf] px-4 py-1.5 font-semibold text-[#b97800]">
-            All
-          </span>
-          <span className="rounded-full px-4 py-1.5 text-slate-500">Exams</span>
-          <span className="rounded-full px-4 py-1.5 text-slate-500">Jobs</span>
-          <span className="rounded-full px-4 py-1.5 text-slate-500">Scholarships</span>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {trending.map(([icon, title, prefix, deadline, href]) => (
-            <Link
-              href={href as "/exams"}
-              key={title}
-              className="soft-card group rounded-xl border border-slate-100 bg-white p-4 transition hover:-translate-y-1"
-            >
-              <div className="flex items-start gap-3">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-50 font-bold text-[#dc9b00]">
-                  {icon}
-                </span>
-                <div>
-                  <h3 className="text-sm font-bold group-hover:text-[#c88600]">{title}</h3>
-                  <p className="mt-1 text-xs text-slate-400">{prefix}</p>
-                  <p className="text-xs font-semibold text-[#ef6657]">{deadline}</p>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs font-semibold">
-                <span className="text-[#ef6657]">16 days left</span>
-                <span className="text-slate-500">View details →</span>
-              </div>
-            </Link>
-          ))}
+        {loading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((x) => (
+              <div key={x} className="h-48 animate-pulse rounded-2xl bg-[#e8ede7]" />
+            ))}
+          </div>
+        ) : error ? (
+          <State
+            message={error}
+            retry={() => {
+              setLoading(true);
+              setError("");
+              Promise.all([
+                apiClient.listExams({ page_size: 3 }),
+                apiClient.listOpportunities({ page_size: 3 }),
+              ])
+                .then(([e, o]) => {
+                  setExams(e.items);
+                  setOpportunities(o.items);
+                })
+                .catch((e: ApiError) => setError(e.message))
+                .finally(() => setLoading(false));
+            }}
+          />
+        ) : exams.length + opportunities.length === 0 ? (
+          <State message="There are no published opportunities or exams to show yet. Please check back soon." />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              ...exams
+                .slice(0, 2)
+                .map((item) => ({
+                  label: item.name,
+                  category: titleize(item.category),
+                  org: item.conducting_body || "Exam information",
+                  href: `/exams/${item.slug}`,
+                  meta: item.application_deadline
+                    ? `Deadline ${date(item.application_deadline)}`
+                    : "Dates to be announced",
+                })),
+              ...opportunities
+                .slice(0, 4)
+                .map((item) => ({
+                  label: item.title,
+                  category: titleize(item.type),
+                  org: item.organization || "Opportunity",
+                  href: `/opportunities/${item.slug}`,
+                  meta: item.deadline
+                    ? `Deadline ${date(item.deadline)}`
+                    : item.remote
+                      ? "Remote"
+                      : item.location || "Location to be announced",
+                })),
+            ]
+              .slice(0, 3)
+              .map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href as "/exams"}
+                  className="rounded-2xl border border-[#e3e9e4] bg-white p-5 transition hover:border-[#b7c9b8] hover:shadow-md"
+                >
+                  <span className="rounded-full bg-[#eef4e8] px-3 py-1 text-xs font-semibold text-[#42634e]">
+                    {item.category}
+                  </span>
+                  <h3 className="mt-5 text-lg font-semibold">{item.label}</h3>
+                  <p className="mt-1 text-sm text-[#63736c]">{item.org}</p>
+                  <p className="mt-5 border-t border-[#edf0ec] pt-4 text-xs text-[#63736c]">
+                    {item.meta}
+                  </p>
+                </Link>
+              ))}
+          </div>
+        )}
+      </section>
+      <section className="mx-5 mb-16 rounded-[2rem] bg-[#145b48] px-6 py-12 text-white sm:px-12 lg:mx-auto lg:max-w-7xl">
+        <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-[#d4edaa]">
+              Your next step can start today
+            </p>
+            <h2 className="mt-3 max-w-xl text-3xl font-semibold tracking-tight sm:text-4xl">
+              Make your plans feel possible.
+            </h2>
+            <p className="mt-3 max-w-lg leading-7 text-white/75">
+              Explore useful information for the exams and opportunities that matter to you.
+            </p>
+          </div>
+          <Link
+            href="/explore"
+            className="shrink-0 rounded-xl bg-[#d4edaa] px-5 py-3 text-sm font-bold text-[#173b2f]"
+          >
+            Explore Elevra <span aria-hidden="true">→</span>
+          </Link>
         </div>
       </section>
     </main>
@@ -580,188 +653,227 @@ function Home() {
 }
 
 function Dashboard() {
-  const plans = [
-    ["09:00", "GATE – Operating Systems", "Study · 60 min"],
-    ["11:00", "Complete DBMS Notes", "Study · 45 min"],
-    ["14:00", "Solve DSA Problems", "Practice · 60 min"],
-    ["16:00", "Apply: Microsoft Internship", "Application · 30 min"],
-  ];
-  const progress = [
-    ["GATE 2026", "72%", "bg-amber-400"],
-    ["JEE Main 2026", "48%", "bg-blue-500"],
-    ["SSC CGL 2025", "61%", "bg-amber-400"],
-  ];
   return (
-    <main className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
-      <section className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-3xl font-extrabold">Hi, Arpit 👋</p>
-          <p className="mt-1 text-sm text-slate-500">Keep going! You&apos;re doing great.</p>
-        </div>
-        <div className="flex gap-3 text-lg text-slate-500">
-          <span>⌕</span>
-          <span>♧</span>
-          <span>▦</span>
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-amber-100 text-sm">
-            A
-          </span>
-        </div>
-      </section>
-      <section className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ["◎", "Opportunities", "128", "Matched for you"],
-          ["⌁", "Exam Readiness", "72%", "Keep it up!"],
-          ["▦", "Upcoming Deadlines", "9", "This week"],
-          ["♧", "Notifications", "4", "Priority alerts"],
-        ].map(([icon, label, value, caption]) => (
-          <article
-            key={label}
-            className="soft-card rounded-xl border border-slate-100 bg-white p-4"
-          >
-            <span className="text-[#e3a000]">{icon}</span>
-            <p className="mt-2 text-xs text-slate-500">{label}</p>
-            <b className="mt-1 block text-2xl">{value}</b>
-            <p className="mt-1 text-xs text-slate-400">{caption}</p>
-          </article>
-        ))}
-      </section>
-      <section className="mt-5 grid gap-5 lg:grid-cols-[1.45fr_.9fr]">
-        <article className="soft-card rounded-2xl border border-slate-100 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold">Today&apos;s Plan</h2>
-            <Link href="/career" className="text-sm font-semibold text-[#d99400]">
-              View Full Plan →
-            </Link>
-          </div>
-          <div className="mt-4 space-y-1">
-            {plans.map(([time, title, meta], i) => (
-              <div
-                key={time}
-                className="grid grid-cols-[56px_1fr_24px] items-center gap-3 rounded-lg px-2 py-3 hover:bg-amber-50"
-              >
-                <span className="text-xs font-semibold text-emerald-600">{time}</span>
-                <div>
-                  <p className="text-sm font-semibold">{title}</p>
-                  <p className="text-xs text-slate-400">{meta}</p>
-                </div>
-                <span className={i === 0 ? "text-emerald-500" : "text-slate-300"}>
-                  {i === 0 ? "●" : "○"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </article>
-        <article className="soft-card rounded-2xl border border-slate-100 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold">Exam Progress</h2>
-            <Link href="/exams" className="text-sm text-[#d99400]">
-              View all
-            </Link>
-          </div>
-          <div className="mt-6 space-y-5">
-            {progress.map(([name, value, color]) => (
-              <div key={name}>
-                <div className="flex justify-between text-sm">
-                  <span>{name}</span>
-                  <b>{value}</b>
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div className={`h-full rounded-full ${color}`} style={{ width: value }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </article>
-      </section>
-      <section className="mt-5 grid gap-5 lg:grid-cols-[1.45fr_.9fr]">
-        <article className="soft-card rounded-2xl border border-slate-100 bg-white p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold">Recommended for You</h2>
-            <Link href="/opportunities" className="text-sm text-[#d99400]">
-              View all →
-            </Link>
-          </div>
-          {[
-            ["G", "Google Internship 2025", "Software Engineering Intern"],
-            ["a", "Amazon SDE Intern", "Summer Internship"],
-            ["▰", "Flipkart Grid 6.0", "Campus Ambassador Program"],
-          ].map(([badge, title, role]) => (
-            <Link
-              href="/opportunities"
-              key={title}
-              className="mt-3 flex items-center gap-3 rounded-lg p-2 transition hover:bg-amber-50"
-            >
-              <span className="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 font-bold text-[#d99400]">
-                {badge}
-              </span>
-              <div className="flex-1">
-                <p className="text-sm font-semibold">{title}</p>
-                <p className="text-xs text-slate-400">{role}</p>
-              </div>
-              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] text-emerald-600">
-                95% Match
-              </span>
-            </Link>
-          ))}
-        </article>
-        <article className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#7143e8] to-[#3820a9] p-5 text-white">
-          <span className="text-lg">✦</span>
-          <h2 className="mt-4 text-lg font-bold">AI Mentor</h2>
-          <p className="mt-2 max-w-[190px] text-sm leading-6 text-violet-100">
-            Ask me anything about exams, careers, and study plans.
-          </p>
+    <main className="mx-auto max-w-5xl px-5 py-12 lg:px-8">
+      <p className="text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">Your space</p>
+      <h1 className="mt-3 text-4xl font-semibold tracking-tight">Your plans, all in one place.</h1>
+      <p className="mt-4 max-w-2xl leading-7 text-[#63736c]">
+        Sign in to access account features. Your saved items, applications and notifications are
+        connected to your account.
+      </p>
+      <div className="mt-8 rounded-2xl border border-[#e3e9e4] bg-white p-6 sm:p-8">
+        <h2 className="text-xl font-semibold">Account access</h2>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-[#63736c]">
+          The web app does not yet connect its account screens to the authentication API, so
+          personal dashboard data cannot be loaded here.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
           <Link
-            href="/career"
-            className="mt-5 inline-block rounded-lg bg-white px-3 py-2 text-xs font-bold text-violet-700"
+            href="/login"
+            className="rounded-xl bg-[#145b48] px-5 py-3 text-sm font-semibold text-white"
           >
-            Chat Now
+            Sign in
           </Link>
-          <span className="absolute bottom-3 right-4 text-6xl opacity-30">🤖</span>
-        </article>
-      </section>
+          <Link
+            href="/explore"
+            className="rounded-xl border border-[#d8e1da] px-5 py-3 text-sm font-semibold text-[#28483b]"
+          >
+            Explore opportunities
+          </Link>
+        </div>
+      </div>
     </main>
   );
 }
 
 function SimplePage({ title, eyebrow, copy }: { title: string; eyebrow: string; copy: string }) {
   return (
-    <main className="mx-auto flex min-h-[70vh] max-w-7xl items-center px-5 py-12 lg:px-8">
-      <section className="grid w-full overflow-hidden rounded-3xl bg-white shadow-sm md:grid-cols-2">
-        <div className="p-8 sm:p-14">
-          <p className="text-sm font-bold uppercase tracking-[.16em] text-[#e4a000]">{eyebrow}</p>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight">{title}</h1>
-          <p className="mt-4 max-w-md leading-7 text-slate-500">{copy}</p>
-          <div className="mt-8 space-y-3">
-            <input
-              placeholder="Email address"
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-amber-400"
-            />
-            <input
-              placeholder="Password"
-              type="password"
-              className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-amber-400"
-            />
-            <button className="w-full rounded-xl bg-[#ffbf13] py-3 font-bold text-slate-900">
-              Continue
-            </button>
-          </div>
-        </div>
-        <div className="hidden bg-gradient-to-br from-[#fff4cb] via-[#ffe69a] to-[#ffbf13] p-14 md:block">
-          <div className="grid h-full place-items-center rounded-[3rem] border-[12px] border-white/60 bg-white/20 text-center">
-            <div>
-              <span className="text-7xl">🎓</span>
-              <p className="mt-5 text-2xl font-extrabold text-slate-800">
-                Your future,
-                <br />
-                organised.
-              </p>
-            </div>
-          </div>
+    <main className="mx-auto grid min-h-[65vh] max-w-6xl items-center gap-10 px-5 py-12 md:grid-cols-[1fr_.8fr] lg:px-8">
+      <section>
+        <p className="text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">{eyebrow}</p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">{title}</h1>
+        <p className="mt-4 max-w-lg leading-7 text-[#63736c]">{copy}</p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            href="/explore"
+            className="rounded-xl bg-[#145b48] px-5 py-3 text-sm font-semibold text-white"
+          >
+            Explore Elevra
+          </Link>
+          <Link
+            href="/register"
+            className="rounded-xl border border-[#d8e1da] px-5 py-3 text-sm font-semibold text-[#28483b]"
+          >
+            Create account
+          </Link>
         </div>
       </section>
+      <aside className="rounded-[2rem] bg-[#e9efe4] p-8 sm:p-10">
+        <span className="text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">
+          Coming into focus
+        </span>
+        <p className="mt-4 text-2xl font-semibold leading-snug">
+          A little clarity can make the next step easier.
+        </p>
+        <p className="mt-4 text-sm leading-6 text-[#63736c]">
+          Explore exams, learning resources and career opportunities while account services are
+          being connected.
+        </p>
+      </aside>
     </main>
   );
 }
+
+function ResourceHub({ route, slug }: { route: string; slug?: string }) {
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [affairs, setAffairs] = useState<CurrentAffair[]>([]);
+  const [tests, setTests] = useState<
+    Array<{ id: string; title: string; type: string; duration_minutes: number }>
+  >([]);
+  const [detail, setDetail] = useState<Course | CurrentAffair | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const isCourses = route === "courses";
+  const isAffairs = route === "current-affairs";
+  useEffect(() => {
+    setLoading(true);
+    setError("");
+    const request = isCourses
+      ? slug
+        ? apiClient.getCourse(slug)
+        : apiClient.listCourses({ page_size: 12 })
+      : isAffairs
+        ? slug
+          ? apiClient.getCurrentAffair(slug)
+          : apiClient.listCurrentAffairs({ page_size: 12 })
+        : apiClient.listTests();
+    request
+      .then((data) => {
+        if (isCourses)
+          slug ? setDetail(data as Course) : setCourses((data as { items: Course[] }).items);
+        else if (isAffairs)
+          slug
+            ? setDetail(data as CurrentAffair)
+            : setAffairs((data as { items: CurrentAffair[] }).items);
+        else
+          setTests(
+            data as Array<{ id: string; title: string; type: string; duration_minutes: number }>,
+          );
+      })
+      .catch((e: ApiError) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [isCourses, isAffairs, route, slug]);
+
+  const title = isCourses ? "Courses" : isAffairs ? "Current affairs" : "Practice tests";
+  if (slug && route === "tests")
+    return (
+      <SimplePage
+        title="Practice test"
+        eyebrow="Practice"
+        copy="Starting and submitting a test requires an authenticated account. Sign in to continue when account access is available."
+      />
+    );
+  if (slug && detail)
+    return (
+      <main className="mx-auto max-w-4xl px-5 py-12 lg:px-8">
+        <Link href={`/${route}`} className="text-sm font-semibold text-[#145b48]">
+          ← Back to {title}
+        </Link>
+        <article className="mt-5 rounded-3xl border border-[#e3e9e4] bg-white p-7 sm:p-10">
+          <p className="text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">
+            {isCourses ? (detail as Course).provider : (detail as CurrentAffair).category}
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+            {isCourses ? (detail as Course).title : (detail as CurrentAffair).title}
+          </h1>
+          <p className="mt-6 whitespace-pre-line leading-7 text-[#63736c]">
+            {isCourses
+              ? (detail as Course).description || "Course details have not been provided."
+              : (detail as CurrentAffair).content}
+          </p>
+          {isCourses && (detail as Course).course_url && (
+            <a
+              className="mt-7 inline-block rounded-xl bg-[#145b48] px-5 py-3 text-sm font-semibold text-white"
+              href={(detail as Course).course_url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Visit course ↗
+            </a>
+          )}
+        </article>
+      </main>
+    );
+
+  const items = isCourses
+    ? courses.map((x) => ({
+        id: x.id,
+        title: x.title,
+        eyebrow: x.provider,
+        copy: x.description || x.category || "Course details",
+        meta: [x.difficulty, x.duration, x.mode].filter(Boolean).join(" · "),
+      }))
+    : isAffairs
+      ? affairs.map((x) => ({
+          id: x.id,
+          title: x.title,
+          eyebrow: x.category,
+          copy: x.summary,
+          meta: x.published_at ? date(x.published_at) : "Publication date not provided",
+        }))
+      : tests.map((x) => ({
+          id: x.id,
+          title: x.title,
+          eyebrow: titleize(x.type),
+          copy: "Practice with a structured test.",
+          meta: `${x.duration_minutes} minutes`,
+        }));
+  return (
+    <main className="mx-auto max-w-7xl px-5 py-12 lg:px-8">
+      <p className="text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">
+        Learn and prepare
+      </p>
+      <h1 className="mt-3 text-4xl font-semibold tracking-tight">{title}</h1>
+      <p className="mt-3 max-w-2xl leading-7 text-[#63736c]">
+        Explore resources published through Elevra. Details reflect the information currently
+        available.
+      </p>
+      {loading ? (
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((x) => (
+            <div key={x} className="h-44 animate-pulse rounded-2xl bg-[#e8ede7]" />
+          ))}
+        </div>
+      ) : error ? (
+        <div className="mt-8">
+          <State message={error} retry={() => location.reload()} />
+        </div>
+      ) : !items.length ? (
+        <div className="mt-8">
+          <State
+            message={`No ${title.toLowerCase()} are available right now. Please check back soon.`}
+          />
+        </div>
+      ) : (
+        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((x) => (
+            <Link
+              key={x.id}
+              href={`/${route}/${x.id}`}
+              className="rounded-2xl border border-[#e3e9e4] bg-white p-5 transition hover:border-[#b7c9b8] hover:shadow-md"
+            >
+              <p className="text-xs font-semibold text-[#668b59]">{x.eyebrow}</p>
+              <h2 className="mt-3 text-lg font-semibold">{x.title}</h2>
+              <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#63736c]">{x.copy}</p>
+              <p className="mt-5 border-t border-[#edf0ec] pt-4 text-xs text-[#63736c]">{x.meta}</p>
+            </Link>
+          ))}
+        </section>
+      )}
+    </main>
+  );
+}
+
 export default function RoutePage({ params }: { params: { slug?: string[] } }) {
   const parts = params.slug || [];
   if (!parts.length) return <Home />;
@@ -782,7 +894,14 @@ export default function RoutePage({ params }: { params: { slug?: string[] } }) {
         copy="Join Elevra to discover trusted opportunities and prepare with a plan made for you."
       />
     );
-  if (parts[0] === "profile") return <Dashboard />;
+  if (parts[0] === "profile")
+    return (
+      <SimplePage
+        title="Your profile"
+        eyebrow="Account"
+        copy="Profile settings and personal preferences are available when account authentication is connected."
+      />
+    );
   if (parts[0] === "career")
     return (
       <SimplePage
@@ -813,6 +932,9 @@ export default function RoutePage({ params }: { params: { slug?: string[] } }) {
       />
     );
   }
+  if (["courses", "current-affairs", "tests"].includes(parts[0]))
+    return <ResourceHub route={parts[0]} slug={parts[1]} />;
+  if (parts[0] === "saved") return <Dashboard />;
   return (
     <main className="mx-auto max-w-4xl px-5 py-16">
       <h1 className="text-4xl font-bold">{titleize(parts[0])}</h1>

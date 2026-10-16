@@ -19,15 +19,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <div className="min-h-screen bg-[#fffcf5] text-[#182033]">
-          <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/90 backdrop-blur">
+        <div className="min-h-screen bg-[#f7f8f4] text-[#14231f]">
+          <header className="sticky top-0 z-30 border-b border-[#e3e9e4] bg-[#f7f8f4]/95 backdrop-blur">
             <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-8">
               <Link
                 href="/"
-                className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-slate-900"
+                className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-[#14231f]"
               >
-                <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#ffbf13] text-base italic text-white">
-                  E
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#145b48] text-sm font-black text-[#d4edaa]">
+                  e
                 </span>
                 Elevra
               </Link>
@@ -35,13 +35,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="flex items-center gap-3 text-sm font-semibold">
                 <Link
                   href="/login"
-                  className="hidden rounded-lg border border-slate-200 px-3.5 py-2 text-slate-700 sm:block"
+                  className="hidden rounded-lg border border-[#d8e1da] px-3.5 py-2 text-slate-700 transition hover:bg-white sm:block"
                 >
                   Login
                 </Link>
                 <Link
                   href="/register"
-                  className="rounded-lg bg-[#ffbf13] px-3.5 py-2 text-slate-900 shadow-sm transition hover:bg-[#f6b400]"
+                  className="rounded-lg bg-[#145b48] px-3.5 py-2 text-white shadow-sm transition hover:bg-[#103f34]"
                 >
                   Get Started
                 </Link>

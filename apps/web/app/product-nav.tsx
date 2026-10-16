@@ -19,7 +19,7 @@ export function ProductNav() {
   return (
     <>
       <nav
-        className="hidden items-center gap-4 text-sm font-medium text-slate-600 lg:flex"
+        className="hidden items-center gap-5 text-sm font-medium text-slate-600 lg:flex"
         aria-label="Primary navigation"
       >
         {links.map(([label, href]) => (
@@ -28,8 +28,8 @@ export function ProductNav() {
             href={href as "/exams"}
             className={
               pathname === href || pathname.startsWith(`${href}/`)
-                ? "border-b-2 border-[#ffbf13] py-5 text-slate-950"
-                : "py-5 hover:text-slate-950"
+                ? "border-b-2 border-[#145b48] py-5 text-[#145b48]"
+                : "py-5 transition hover:text-[#145b48]"
             }
           >
             {label}
@@ -37,13 +37,13 @@ export function ProductNav() {
         ))}
       </nav>
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-slate-200 bg-white px-2 py-2 text-[11px] font-semibold md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-[#e3e9e4] bg-white px-2 py-2 text-[11px] font-semibold md:hidden"
         aria-label="Mobile navigation"
       >
         {[
           ["Home", "/", "⌂"],
           ["Explore", "/explore", "⌕"],
-          ["Saved", "/saved", "♡"],
+          ["Career", "/career", "↗"],
           ["Tests", "/tests", "▦"],
           ["Profile", "/profile", "◉"],
         ].map(([label, href, icon]) => (
