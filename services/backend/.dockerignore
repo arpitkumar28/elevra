@@ -1,0 +1,12 @@
+# Keep local credentials, environments, and generated files out of the Docker context.
+.env
+.env.*
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.git
+*.log
