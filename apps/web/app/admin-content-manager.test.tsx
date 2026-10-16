@@ -17,6 +17,7 @@ const apiMocks = vi.hoisted(() => ({
   deleteAdminTestQuestion: vi.fn(),
   refreshSession: vi.fn(),
   getMe: vi.fn(),
+  withSession: vi.fn(),
 }));
 
 vi.mock("@elevra/api-client", () => ({
@@ -27,7 +28,7 @@ vi.mock("@elevra/api-client", () => ({
 }));
 
 vi.mock("../../admin/app/admin-session", () => ({
-  useAuth: () => ({ withSession: (request: (token: string) => Promise<unknown>) => request("admin-session") }),
+  useAuth: () => ({ withSession: apiMocks.withSession }),
 }));
 
 vi.mock("next/link", () => ({
@@ -42,6 +43,7 @@ describe("admin content manager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     apiMocks.listAdminContent.mockResolvedValue(emptyPage);
+    apiMocks.withSession.mockImplementation((request: (token: string) => Promise<unknown>) => request("admin-session"));
     apiMocks.refreshSession.mockResolvedValue({ access_token: "admin-session", expires_in: 3600 });
     apiMocks.getMe.mockResolvedValue({ id: "admin", role: "admin", email: "admin@example.com", name: "Admin" });
   });

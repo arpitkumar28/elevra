@@ -18,6 +18,51 @@ def test_admin_content_requires_admin_for_lists_and_mutations(client, student_he
     assert _request(client, "POST", "/courses", headers=student_headers, json={}).status_code == 403
 
 
+def test_every_admin_mutation_rejects_anonymous_and_student_sessions(client, admin_headers, student_headers):
+    exam = _request(client, "POST", "/exams", headers=admin_headers, json={
+        "name": "Access Control Exam", "slug": "access-control-exam", "category": "other",
+    }).json()
+    opportunity = _request(client, "POST", "/opportunities", headers=admin_headers, json={
+        "title": "Access Control Job", "slug": "access-control-job", "type": "job",
+    }).json()
+    course = _request(client, "POST", "/courses", headers=admin_headers, json={
+        "title": "Access Control Course", "slug": "access-control-course", "provider": "Elevra",
+    }).json()
+    affair = _request(client, "POST", "/current-affairs", headers=admin_headers, json={
+        "title": "Access Control Affairs", "slug": "access-control-affairs",
+        "summary": "This summary is long enough for validation.",
+        "content": "This article body is long enough for validation.",
+        "category": "policy", "source": "Official source",
+    }).json()
+    test = _request(client, "POST", "/tests", headers=admin_headers, json={
+        "title": "Access Control Test", "slug": "access-control-test", "type": "practice",
+        "duration_minutes": 20,
+    }).json()
+    question = _request(client, "POST", f"/tests/{test['id']}/questions", headers=admin_headers, json={
+        "text": "Pick one", "options": [{"text": "Correct", "is_correct": True}, {"text": "Wrong"}],
+    }).json()
+    mutations = [
+        ("PATCH", f"/exams/{exam['id']}", {"name": "Changed exam"}),
+        ("PATCH", f"/opportunities/{opportunity['id']}", {"title": "Changed job"}),
+        ("PATCH", f"/courses/{course['id']}", {"title": "Changed course"}),
+        ("PATCH", f"/current-affairs/{affair['id']}", {"title": "Changed affairs"}),
+        ("PATCH", f"/tests/{test['id']}", {"title": "Changed test"}),
+        ("POST", f"/exams/{exam['id']}/actions/publish", None),
+        ("POST", f"/opportunities/{opportunity['id']}/actions/publish", None),
+        ("POST", f"/courses/{course['id']}/actions/submit", None),
+        ("POST", f"/current-affairs/{affair['id']}/actions/review", None),
+        ("POST", f"/tests/{test['id']}/actions/publish", None),
+        ("PUT", f"/tests/{test['id']}/questions/{question['id']}", {
+            "text": "Changed question", "options": [{"text": "Correct", "is_correct": True}, {"text": "Wrong"}],
+        }),
+        ("DELETE", f"/tests/{test['id']}/questions/{question['id']}", None),
+        ("DELETE", f"/tests/{test['id']}", None),
+    ]
+    for method, path, payload in mutations:
+        assert _request(client, method, path, json=payload).status_code == 401, (method, path)
+        assert _request(client, method, path, headers=student_headers, json=payload).status_code == 403, (method, path)
+
+
 def test_exam_admin_lifecycle_filters_public_visibility_and_audit(client, admin_headers, db):
     payload = {
         "name": "National Engineering Exam",
@@ -92,7 +137,7 @@ def test_course_and_current_affair_review_workflows_use_persisted_queue(client, 
     assert client.get("/api/v1/current-affairs").json()["total"] == 1
 
 
-def test_test_content_questions_publication_and_safe_draft_delete(client, admin_headers):
+def test_test_content_questions_publication_and_safe_draft_delete(client, admin_headers, db):
     created = _request(client, "POST", "/tests", headers=admin_headers, json={
         "title": "Policy basics", "slug": "policy-basics", "type": "practice", "duration_minutes": 30,
     })
@@ -107,8 +152,13 @@ def test_test_content_questions_publication_and_safe_draft_delete(client, admin_
     assert _request(client, "POST", f"/tests/{test_id}/questions", headers=admin_headers, json=invalid_question).status_code == 422
     question = _request(client, "POST", f"/tests/{test_id}/questions", headers=admin_headers, json=question_payload)
     assert question.status_code == 201
+    edited_question = question_payload | {"text": "Updated question text"}
+    assert _request(client, "PUT", f"/tests/{test_id}/questions/{question.json()['id']}", headers=admin_headers, json=edited_question).status_code == 200
     detail = _request(client, "GET", f"/tests/{test_id}", headers=admin_headers).json()
+    assert detail["questions"][0]["text"] == "Updated question text"
     assert detail["questions"][0]["options"][0]["is_correct"] is True
+    question_audits = db.query(AuditLog).filter(AuditLog.entity == "test", AuditLog.entity_id == test_id).all()
+    assert {entry.action for entry in question_audits} >= {"CREATE_QUESTION", "UPDATE_QUESTION"}
     publish = _request(client, "POST", f"/tests/{test_id}/actions/publish", headers=admin_headers)
     assert publish.status_code == 200
     public_test = client.get(f"/api/v1/tests/{test_id}").json()
