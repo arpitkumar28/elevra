@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import React, { useState, type FormEvent, type ReactNode } from "react";
 import { AuthProvider, useAuth } from "../../web/app/auth-provider";
 
 function AdminSession({ children }: { children: ReactNode }) {

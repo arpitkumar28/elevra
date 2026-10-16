@@ -30,6 +30,7 @@ function Probe() {
       <p>
         {auth.status}:{auth.user?.email || "signed-out"}
       </p>
+      {auth.error && <p role="alert">{auth.error}</p>}
       <button
         onClick={() =>
           void auth.signIn("student@example.com", "SecurePass123").catch(() => undefined)
@@ -78,13 +79,14 @@ describe("student auth session", () => {
   });
 
   it("signs in, signs out through the API, and clears the in-memory session", async () => {
-    api.refreshSession.mockRejectedValue(new ApiError("No session", 401));
+    api.refreshSession.mockRejectedValue(new ApiError("refresh token required", 401));
     render(
       <AuthProvider>
         <Probe />
       </AuthProvider>,
     );
     await screen.findByText("unauthenticated:signed-out");
+    expect(screen.queryByRole("alert")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
     await screen.findByText("authenticated:student@example.com");

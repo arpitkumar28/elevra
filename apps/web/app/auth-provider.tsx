@@ -63,12 +63,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           cause instanceof ApiError
             ? cause
             : new ApiError("Unable to restore your session. Check your connection and try again.");
-        if (failure.status === 401 || !sessionRef.current) {
+        const unauthenticated = failure.status === 401;
+        if (unauthenticated || !sessionRef.current) {
           sessionRef.current = null;
           setUser(null);
-          setStatus(failure.status === 401 ? "unauthenticated" : "error");
+          setStatus(unauthenticated ? "unauthenticated" : "error");
         }
-        setError(failure.message);
+        setError(unauthenticated ? "" : failure.message);
         throw failure;
       } finally {
         restorePromiseRef.current = null;
