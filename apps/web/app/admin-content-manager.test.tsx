@@ -15,6 +15,7 @@ const apiMocks = vi.hoisted(() => ({
   addAdminTestQuestion: vi.fn(),
   updateAdminTestQuestion: vi.fn(),
   deleteAdminTestQuestion: vi.fn(),
+  queueSearch: "",
   refreshSession: vi.fn(),
   getMe: vi.fn(),
   withSession: vi.fn(),
@@ -22,7 +23,9 @@ const apiMocks = vi.hoisted(() => ({
 
 vi.mock("@elevra/api-client", () => ({
   ApiError: class ApiError extends Error {
-    constructor(message: string) { super(message); }
+    constructor(message: string) {
+      super(message);
+    }
   },
   createApiClient: () => apiMocks,
 }));
@@ -33,19 +36,40 @@ vi.mock("../../admin/app/admin-session", () => ({
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
-    <a href={href as string} {...props}>{children}</a>
+    <a href={href as string} {...props}>
+      {children}
+    </a>
   ),
 }));
 
-const emptyPage: AdminContentPage<Record<string, unknown>> = { items: [], page: 1, page_size: 12, total: 0, total_pages: 0 };
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(apiMocks.queueSearch),
+}));
+
+const emptyPage: AdminContentPage<Record<string, unknown>> = {
+  items: [],
+  page: 1,
+  page_size: 12,
+  total: 0,
+  total_pages: 0,
+};
 
 describe("admin content manager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    apiMocks.queueSearch = "";
     apiMocks.listAdminContent.mockResolvedValue(emptyPage);
-    apiMocks.withSession.mockImplementation((request: (token: string) => Promise<unknown>) => request("admin-session"));
+    apiMocks.listAdminQueue.mockResolvedValue(emptyPage);
+    apiMocks.withSession.mockImplementation((request: (token: string) => Promise<unknown>) =>
+      request("admin-session"),
+    );
     apiMocks.refreshSession.mockResolvedValue({ access_token: "admin-session", expires_in: 3600 });
-    apiMocks.getMe.mockResolvedValue({ id: "admin", role: "admin", email: "admin@example.com", name: "Admin" });
+    apiMocks.getMe.mockResolvedValue({
+      id: "admin",
+      role: "admin",
+      email: "admin@example.com",
+      name: "Admin",
+    });
   });
 
   function renderWorkspace(route: string) {
@@ -54,10 +78,28 @@ describe("admin content manager", () => {
 
   it("shows a loading state and then persisted content", async () => {
     let resolve!: (value: typeof emptyPage) => void;
-    apiMocks.listAdminContent.mockReturnValueOnce(new Promise<typeof emptyPage>(done => { resolve = done; }));
+    apiMocks.listAdminContent.mockReturnValueOnce(
+      new Promise<typeof emptyPage>((done) => {
+        resolve = done;
+      }),
+    );
     renderWorkspace("courses");
     expect(screen.getByRole("status").textContent).toContain("Loading courses");
-    resolve({ ...emptyPage, items: [{ id: "course-1", title: "Policy course", slug: "policy-course", provider: "Elevra", status: "draft", updated_at: "2026-05-01T00:00:00Z" }], total: 1, total_pages: 1 });
+    resolve({
+      ...emptyPage,
+      items: [
+        {
+          id: "course-1",
+          title: "Policy course",
+          slug: "policy-course",
+          provider: "Elevra",
+          status: "draft",
+          updated_at: "2026-05-01T00:00:00Z",
+        },
+      ],
+      total: 1,
+      total_pages: 1,
+    });
     expect(await screen.findByText("Policy course")).toBeDefined();
   });
 
@@ -71,7 +113,15 @@ describe("admin content manager", () => {
   });
 
   it("creates a validated draft and reports success", async () => {
-    apiMocks.createAdminContent.mockResolvedValue({ id: "course-2", title: "Civics", slug: "civics", provider: "Elevra", skills: [], certificate: false, status: "draft" });
+    apiMocks.createAdminContent.mockResolvedValue({
+      id: "course-2",
+      title: "Civics",
+      slug: "civics",
+      provider: "Elevra",
+      skills: [],
+      certificate: false,
+      status: "draft",
+    });
     renderWorkspace("courses");
     await screen.findByText("No courses match these filters.");
     fireEvent.click(screen.getByRole("button", { name: "Create course" }));
@@ -79,11 +129,33 @@ describe("admin content manager", () => {
     fireEvent.change(screen.getByLabelText("URL slug"), { target: { value: "civics" } });
     fireEvent.change(screen.getByLabelText("Provider"), { target: { value: "Elevra" } });
     fireEvent.click(screen.getByRole("button", { name: "Create draft" }));
-    await waitFor(() => expect(apiMocks.createAdminContent).toHaveBeenCalledWith(
-      "courses",
-      expect.objectContaining({ title: "Civics", slug: "civics", provider: "Elevra", skills: [] }),
-      "admin-session",
-    ));
+    await waitFor(() =>
+      expect(apiMocks.createAdminContent).toHaveBeenCalledWith(
+        "courses",
+        expect.objectContaining({
+          title: "Civics",
+          slug: "civics",
+          provider: "Elevra",
+          skills: [],
+        }),
+        "admin-session",
+      ),
+    );
     expect(await screen.findByText("Draft created.")).toBeDefined();
+  });
+
+  it("opens the persisted pending-review queue when its status is in the URL", async () => {
+    apiMocks.queueSearch = "status=pending_review";
+    renderWorkspace("queue");
+
+    await waitFor(() =>
+      expect(apiMocks.listAdminQueue).toHaveBeenCalledWith(
+        { status: "pending_review", page: 1, page_size: 20 },
+        "admin-session",
+      ),
+    );
+    expect(
+      screen.getByRole("button", { name: "Pending review" }).getAttribute("aria-pressed"),
+    ).toBe("true");
   });
 });
