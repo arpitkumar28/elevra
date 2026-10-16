@@ -1,5 +1,40 @@
 import importlib
 
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.engine import make_url
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "postgres://user:password@db.example:5432/elevra",
+        "postgresql://user:password@db.example:5432/elevra",
+        "postgresql+psycopg2://user:password@db.example:5432/elevra",
+    ],
+)
+def test_sync_postgres_urls_select_psycopg3(url):
+    from app.core.config import _normalize_sync_database_url
+
+    normalized = _normalize_sync_database_url(url)
+    assert make_url(normalized).drivername == "postgresql+psycopg"
+
+
+def test_render_database_and_alembic_urls_load_psycopg3(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:password@db.example:5432/elevra")
+    monkeypatch.setenv("ALEMBIC_DATABASE_URL", "postgres://user:password@db.example:5432/elevra")
+
+    from app.core.config import Settings
+
+    settings = Settings()
+    for url in (settings.database_url, settings.alembic_database_url):
+        engine = create_engine(url)
+        try:
+            assert engine.dialect.driver == "psycopg"
+            assert engine.dialect.dbapi.__name__ == "psycopg"
+        finally:
+            engine.dispose()
+
 
 def test_supabase_database_configuration(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")

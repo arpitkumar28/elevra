@@ -25,6 +25,18 @@ def _build_database_url(
     raise ValueError(f"Unsupported database driver: {driver}")
 
 
+def _normalize_sync_database_url(url: str) -> str:
+    """Use the installed Psycopg 3 driver for sync PostgreSQL URLs.
+
+    Providers commonly supply ``postgres://`` or ``postgresql://`` URLs, which
+    SQLAlchemy otherwise resolves to the separate psycopg2 package.
+    """
+    scheme, separator, remainder = url.partition("://")
+    if separator and scheme in {"postgres", "postgresql", "postgresql+psycopg2"}:
+        return f"postgresql+psycopg://{remainder}"
+    return url
+
+
 @dataclass(frozen=True)
 class Settings:
     app_name: str = os.getenv("APP_NAME", "elevra")
@@ -38,15 +50,17 @@ class Settings:
     supabase_db_password: str = os.getenv("SUPABASE_DB_PASSWORD", "elevra_dev_password")
     supabase_sslmode: str = os.getenv("SUPABASE_SSLMODE", "require")
     database_url: str = field(
-        default_factory=lambda: os.getenv("DATABASE_URL")
-        or _build_database_url(
-            "psycopg",
-            host=os.getenv("SUPABASE_DB_HOST", "localhost"),
-            port=int(os.getenv("SUPABASE_DB_PORT", "5432")),
-            db_name=os.getenv("SUPABASE_DB_NAME", "elevra"),
-            username=os.getenv("SUPABASE_DB_USER", "elevra"),
-            password=os.getenv("SUPABASE_DB_PASSWORD", "elevra_dev_password"),
-            ssl_mode=os.getenv("SUPABASE_SSLMODE", "require"),
+        default_factory=lambda: _normalize_sync_database_url(
+            os.getenv("DATABASE_URL")
+            or _build_database_url(
+                "psycopg",
+                host=os.getenv("SUPABASE_DB_HOST", "localhost"),
+                port=int(os.getenv("SUPABASE_DB_PORT", "5432")),
+                db_name=os.getenv("SUPABASE_DB_NAME", "elevra"),
+                username=os.getenv("SUPABASE_DB_USER", "elevra"),
+                password=os.getenv("SUPABASE_DB_PASSWORD", "elevra_dev_password"),
+                ssl_mode=os.getenv("SUPABASE_SSLMODE", "require"),
+            )
         )
     )
     database_url_async: str = field(
@@ -62,16 +76,18 @@ class Settings:
         )
     )
     alembic_database_url: str = field(
-        default_factory=lambda: os.getenv("ALEMBIC_DATABASE_URL")
-        or os.getenv("DATABASE_URL")
-        or _build_database_url(
-            "psycopg",
-            host=os.getenv("SUPABASE_DB_HOST", "localhost"),
-            port=int(os.getenv("SUPABASE_DB_PORT", "5432")),
-            db_name=os.getenv("SUPABASE_DB_NAME", "elevra"),
-            username=os.getenv("SUPABASE_DB_USER", "elevra"),
-            password=os.getenv("SUPABASE_DB_PASSWORD", "elevra_dev_password"),
-            ssl_mode=os.getenv("SUPABASE_SSLMODE", "require"),
+        default_factory=lambda: _normalize_sync_database_url(
+            os.getenv("ALEMBIC_DATABASE_URL")
+            or os.getenv("DATABASE_URL")
+            or _build_database_url(
+                "psycopg",
+                host=os.getenv("SUPABASE_DB_HOST", "localhost"),
+                port=int(os.getenv("SUPABASE_DB_PORT", "5432")),
+                db_name=os.getenv("SUPABASE_DB_NAME", "elevra"),
+                username=os.getenv("SUPABASE_DB_USER", "elevra"),
+                password=os.getenv("SUPABASE_DB_PASSWORD", "elevra_dev_password"),
+                ssl_mode=os.getenv("SUPABASE_SSLMODE", "require"),
+            )
         )
     )
     db_pool_size: int = int(os.getenv("DB_POOL_SIZE", "5"))
