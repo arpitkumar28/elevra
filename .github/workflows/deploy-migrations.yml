@@ -9,13 +9,19 @@ on:
       - services/backend/requirements.txt
       - .github/workflows/deploy-migrations.yml
   workflow_dispatch:
+    inputs:
+      migration_history_reviewed:
+        description: Confirm the migration history correction passed a fresh PostgreSQL upgrade test and review
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   migrate-staging:
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'workflow_dispatch' && inputs.migration_history_reviewed == true
     runs-on: ubuntu-latest
     environment: staging
     steps:
@@ -32,7 +38,7 @@ jobs:
           ALEMBIC_DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
   migrate-production:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.migration_history_reviewed == true
     runs-on: ubuntu-latest
     environment: production
     steps:

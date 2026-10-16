@@ -37,9 +37,14 @@ misses where the endpoint can safely continue.
 
 Alembic is the only migration authority. The deployment workflow runs
 `alembic upgrade head` against the GitHub `staging` or `production`
-environment after branch protection and any environment approval. Add the
-corresponding `DATABASE_URL` GitHub environment secret before enabling releases.
-Render deploys from GitHub only after CI succeeds; it does not run migrations.
+environment after branch protection and any environment approval. Staging
+migrations require a manual workflow dispatch on `develop` with the
+`migration_history_reviewed` confirmation enabled; production uses the same
+gate on `main`. This confirms the migration history has passed a fresh
+PostgreSQL upgrade test and review. Pushes cannot run migrations automatically.
+Add the corresponding `DATABASE_URL` GitHub environment secret before enabling
+releases. Render deploys from GitHub only after CI succeeds; it does not run
+migrations.
 The `20260821_merge_deployment_heads` migration establishes one Alembic head
 without changing either existing branch.
 
