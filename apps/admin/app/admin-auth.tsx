@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, type FormEvent, type ReactNode } from "react";
+import Image from "next/image";
 import { AuthProvider, useAuth } from "../../web/app/auth-provider";
 
 function AdminSession({ children }: { children: ReactNode }) {
@@ -46,9 +47,14 @@ function AdminSession({ children }: { children: ReactNode }) {
   if (status !== "authenticated" || !user)
     return (
       <main className="mx-auto mt-12 max-w-md rounded-3xl border border-[#e1e8e1] bg-white p-8 shadow-[0_18px_48px_rgba(25,54,39,.08)] sm:mt-20 sm:p-10">
-        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#155b48] text-lg font-black text-[#dce9d1]">
-          e
-        </span>
+        <Image
+          src="/elevra-logo.png"
+          alt=""
+          width={44}
+          height={44}
+          priority
+          className="h-11 w-11 rounded-2xl object-cover"
+        />
         <h1 className="text-2xl font-bold">Admin sign in</h1>
         <p className="mt-2 text-sm text-slate-600">Sign in with an Elevra administrator account.</p>
         <form onSubmit={submit} className="mt-6 space-y-4">
