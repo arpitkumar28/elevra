@@ -7,6 +7,7 @@ from typing import Annotated
 
 import bcrypt
 from fastapi import Depends, Header, HTTPException, Request, status
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -55,6 +56,9 @@ def get_current_user(
     user = db.get(User, subject)
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="authentication required")
+    locked_until = _as_utc(user.locked_until)
+    if locked_until and locked_until > datetime.now(UTC):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="account temporarily locked")
     return user
 
 
@@ -150,22 +154,37 @@ def rotate_refresh_token(db: Session, refresh_token_value: str, *, request: Requ
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="refresh token revoked or invalid")
     if refresh_record.revoked_at or _as_utc(refresh_record.expires_at) <= datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="refresh token revoked or invalid")
+    user = db.get(User, subject)
+    if user is None or not user.is_active or (user.locked_until and _as_utc(user.locked_until) > datetime.now(UTC)):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="authentication required")
 
     now = datetime.now(UTC)
     new_session_id = uuid.uuid4().hex
     new_refresh_value = create_refresh_token(subject, {"sid": new_session_id})
+    claimed = db.execute(
+        update(RefreshToken)
+        .where(
+            RefreshToken.id == refresh_record.id,
+            RefreshToken.revoked_at.is_(None),
+            RefreshToken.expires_at > now,
+        )
+        .values(revoked_at=now, last_used_at=now, updated_at=now)
+        .execution_options(synchronize_session=False)
+    )
+    if claimed.rowcount != 1:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="refresh token revoked or invalid")
     refresh_record.revoked_at = now
     refresh_record.last_used_at = now
     refresh_record.updated_at = now
     replacement = create_session_record(
         db,
-        db.get(User, subject),
+        user,
         refresh_token_value=new_refresh_value,
         request=request,
         session_id=new_session_id,
     )
     refresh_record.replaced_by = replacement.id
-    user = refresh_record.user
     access_token = create_access_token(
         subject,
         {

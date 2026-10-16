@@ -11,7 +11,14 @@ import {
   type CurrentAffair,
 } from "@elevra/api-client";
 import { AuthForm, ProtectedContent } from "../auth-components";
-import { DashboardPage, OpportunityAccountActions, ProfilePage, SavedPage } from "../account-pages";
+import {
+  DashboardPage,
+  NotificationsPage,
+  OpportunityAccountActions,
+  PracticeTestPage,
+  ProfilePage,
+  SavedPage,
+} from "../account-pages";
 
 const apiClient = createApiClient({
   baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1",
@@ -671,44 +678,6 @@ function Home() {
   );
 }
 
-function SimplePage({ title, eyebrow, copy }: { title: string; eyebrow: string; copy: string }) {
-  return (
-    <main className="mx-auto grid min-h-[65vh] max-w-6xl items-center gap-10 px-5 py-12 md:grid-cols-[1fr_.8fr] lg:px-8">
-      <section>
-        <p className="text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">{eyebrow}</p>
-        <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">{title}</h1>
-        <p className="mt-4 max-w-lg leading-7 text-[#63736c]">{copy}</p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            href="/explore"
-            className="rounded-xl bg-[#145b48] px-5 py-3 text-sm font-semibold text-white"
-          >
-            Explore Elevra
-          </Link>
-          <Link
-            href="/register"
-            className="rounded-xl border border-[#d8e1da] px-5 py-3 text-sm font-semibold text-[#28483b]"
-          >
-            Create account
-          </Link>
-        </div>
-      </section>
-      <aside className="rounded-[2rem] bg-[#e9efe4] p-8 sm:p-10">
-        <span className="text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">
-          Coming into focus
-        </span>
-        <p className="mt-4 text-2xl font-semibold leading-snug">
-          A little clarity can make the next step easier.
-        </p>
-        <p className="mt-4 text-sm leading-6 text-[#63736c]">
-          Explore exams, learning resources and career opportunities while account services are
-          being connected.
-        </p>
-      </aside>
-    </main>
-  );
-}
-
 function ResourceHub({ route, slug }: { route: string; slug?: string }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [affairs, setAffairs] = useState<CurrentAffair[]>([]);
@@ -752,11 +721,9 @@ function ResourceHub({ route, slug }: { route: string; slug?: string }) {
   const title = isCourses ? "Courses" : isAffairs ? "Current affairs" : "Practice tests";
   if (slug && route === "tests")
     return (
-      <SimplePage
-        title="Practice test"
-        eyebrow="Practice"
-        copy="Starting and submitting a test requires an authenticated account. Sign in to continue when account access is available."
-      />
+      <ProtectedContent>
+        <PracticeTestPage testId={slug} />
+      </ProtectedContent>
     );
   if (slug && detail)
     return (
@@ -876,12 +843,19 @@ export default function RoutePage({ params }: { params: { slug?: string[] } }) {
         <ProfilePage />
       </ProtectedContent>
     );
+  if (parts[0] === "notifications")
+    return (
+      <ProtectedContent>
+        <NotificationsPage />
+      </ProtectedContent>
+    );
   if (parts[0] === "career")
     return (
-      <SimplePage
-        title="Find your direction"
-        eyebrow="Career discovery"
-        copy="Explore roles, courses, and opportunities that match your goals and interests."
+      <Listing
+        kind="opportunities"
+        title="Career opportunities"
+        defaultType="job"
+        basePath="/jobs"
       />
     );
   const opportunityViews: Record<string, { title: string; type?: string }> = {

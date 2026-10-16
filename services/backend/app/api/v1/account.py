@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.platform import Application, Bookmark, Notification
-from app.schemas.platform import ApplicationWrite, BookmarkWrite
+from app.schemas.platform import ApplicationUpdate, ApplicationWrite, BookmarkWrite
 from app.services.audit import record_audit
 from app.services.auth import get_current_user
 
@@ -51,7 +51,7 @@ def list_applications(db: Annotated[Session, Depends(get_db)], user=Depends(get_
 
 
 @router.patch("/applications/{application_id}")
-def update_application(application_id: str, payload: ApplicationWrite, request: Request, db: Annotated[Session, Depends(get_db)], user=Depends(get_current_user)):
+def update_application(application_id: str, payload: ApplicationUpdate, request: Request, db: Annotated[Session, Depends(get_db)], user=Depends(get_current_user)):
     item = db.query(Application).filter(Application.id == application_id, Application.user_id == user.id).first()
     if not item: raise HTTPException(status_code=404, detail="application not found")
     for key, value in payload.model_dump(exclude_unset=True).items(): setattr(item, key, value)

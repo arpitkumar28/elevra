@@ -2,12 +2,16 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Cookie, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.auth import get_current_user as get_current_auth_user
+from app.core.config import settings
 from app.db.session import get_db
 from app.models.account_token import AccountToken
 from app.models.user import User
+from app.infrastructure.rate_limit.limiter import rate_limit
 from app.schemas.auth import (
     LoginRequest,
     PasswordResetConfirm,
@@ -21,6 +25,7 @@ from app.services.auth import (
     create_account_token,
     hash_password,
     hash_token_for_storage,
+    _as_utc,
     issue_token_pair,
     revoke_refresh_token,
     rotate_refresh_token,
@@ -33,29 +38,41 @@ REFRESH_COOKIE = "elevra_refresh"
 
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
-    from app.core.config import settings
-
     response.set_cookie(
         key=REFRESH_COOKIE,
         value=token,
         httponly=True,
         secure=settings.environment not in {"development", "test"},
-        samesite="lax",
+        samesite="none" if settings.environment not in {"development", "test"} else "lax",
         max_age=settings.refresh_token_ttl_seconds,
         path="/api/v1/auth",
     )
 
 
 def _clear_refresh_cookie(response: Response) -> None:
-    from app.core.config import settings
-
     response.delete_cookie(
         key=REFRESH_COOKIE,
         httponly=True,
         secure=settings.environment not in {"development", "test"},
-        samesite="lax",
+        samesite="none" if settings.environment not in {"development", "test"} else "lax",
         path="/api/v1/auth",
     )
+
+
+def _refresh_error(request: Request, message: str, code: str) -> JSONResponse:
+    response = JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        content={
+            "error": {
+                "code": code,
+                "message": message,
+                "request_id": getattr(request.state, "request_id", ""),
+            },
+            "detail": message,
+        },
+    )
+    _clear_refresh_cookie(response)
+    return response
 
 
 class RefreshTokenRequest(BaseModel):
@@ -66,7 +83,7 @@ class LogoutRequest(RefreshTokenRequest):
     pass
 
 
-@router.post("/register", response_model=TokenResponse)
+@router.post("/register", response_model=TokenResponse, dependencies=[Depends(rate_limit("register"))])
 def register(
     payload: RegisterRequest,
     request: Request,
@@ -98,7 +115,7 @@ def register(
     )
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, dependencies=[Depends(rate_limit("login"))])
 def login(
     payload: LoginRequest,
     request: Request,
@@ -107,6 +124,9 @@ def login(
 ) -> TokenResponse:
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
+    locked_until = _as_utc(user.locked_until)
+    if not user.is_active or (locked_until and locked_until > datetime.now(UTC)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
 
     tokens = issue_token_pair(db, user, request=request)
@@ -119,7 +139,7 @@ def login(
     )
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=TokenResponse, dependencies=[Depends(rate_limit("refresh"))])
 def refresh(
     request: Request,
     response: Response,
@@ -129,16 +149,18 @@ def refresh(
 ) -> TokenResponse:
     refresh_token = payload.refresh_token if payload and payload.refresh_token else cookie_token
     if not refresh_token:
-        _clear_refresh_cookie(response)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="refresh token required")
+        return _refresh_error(request, "refresh token required", "REFRESH_TOKEN_INVALID")
+    if cookie_token and payload is None:
+        origin = request.headers.get("origin")
+        if origin and origin.rstrip("/") not in settings.allowed_origins:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="origin not allowed")
     try:
         tokens = rotate_refresh_token(db, refresh_token, request=request)
-    except ValueError as exc:
-        _clear_refresh_cookie(response)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed") from exc
-    except HTTPException:
-        _clear_refresh_cookie(response)
-        raise
+    except ValueError:
+        return _refresh_error(request, "Authentication failed", "AUTHENTICATION_FAILED")
+    except HTTPException as exc:
+        message = str(exc.detail) if isinstance(exc.detail, str) else "Authentication failed"
+        return _refresh_error(request, message, "REFRESH_TOKEN_INVALID")
     _set_refresh_cookie(response, str(tokens["refresh_token"]))
 
     return TokenResponse(
@@ -158,15 +180,15 @@ def logout(
     payload: LogoutRequest | None = Body(default=None),
     cookie_token: Annotated[str | None, Cookie(alias=REFRESH_COOKIE)] = None,
 ) -> dict[str, str]:
-    refresh_token = payload.refresh_token if payload else cookie_token
-    if refresh_token:
+    refresh_tokens = {token for token in (payload.refresh_token if payload else None, cookie_token) if token}
+    for refresh_token in refresh_tokens:
         revoke_refresh_token(db, refresh_token, user_id=str(user.id))
     _clear_refresh_cookie(response)
     return {"message": "logged out"}
 
 
 @router.get("/me")
-def me(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, str]:
+def me(user: Annotated[CurrentUser, Depends(get_current_auth_user)]) -> dict[str, str]:
     return {
         "id": user.id,
         "email": str(user.email),
@@ -175,7 +197,7 @@ def me(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, str
     }
 
 
-@router.post("/password-reset/request")
+@router.post("/password-reset/request", dependencies=[Depends(rate_limit("password_reset"))])
 def password_reset_request(payload: PasswordResetRequest, db: Annotated[Session, Depends(get_db)]) -> dict[str, str]:
     user = db.query(User).filter(User.email == payload.email).first()
     if user is not None:
@@ -198,7 +220,7 @@ def password_reset_confirm(payload: PasswordResetConfirm, db: Annotated[Session,
     return {"message": "password reset successful"}
 
 
-@router.post("/verify-email/request")
+@router.post("/verify-email/request", dependencies=[Depends(rate_limit("password_reset"))])
 def verify_email_request(payload: PasswordResetRequest, db: Annotated[Session, Depends(get_db)]) -> dict[str, str]:
     user = db.query(User).filter(User.email == payload.email).first()
     if user is not None:

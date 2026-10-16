@@ -27,7 +27,6 @@ export default function AdminPage({ params }: { params: { slug?: string[] } }) {
       })
       .catch((e: ApiError) => setError(e.message));
   }, []);
-  const pending = [...exams, ...opps].filter((x) => !x.verified);
   if (error)
     return (
       <Panel title="Connection issue">
@@ -48,7 +47,10 @@ export default function AdminPage({ params }: { params: { slug?: string[] } }) {
           {[
             ["Exams returned (max 20)", exams.length],
             ["Opportunities returned (max 20)", opps.length],
-            ["Unverified loaded records", pending.length],
+            [
+              "Unverified records in loaded public sample",
+              [...exams, ...opps].filter((x) => !x.verified).length,
+            ],
             ["Loaded items with deadlines", opps.filter((o) => o.deadline).length],
           ].map(([label, n]) => (
             <Panel key={String(label)} title={String(label)}>
@@ -67,23 +69,11 @@ export default function AdminPage({ params }: { params: { slug?: string[] } }) {
   if (route === "verification")
     return (
       <Panel title="Verification queue">
-        {pending.length ? (
-          <div className="space-y-3">
-            {pending.map((x) => (
-              <div className="rounded-xl border p-4" key={x.id}>
-                <b>{"name" in x ? x.name : x.title}</b>
-                <p className="mt-1 text-sm text-slate-600">
-                  Status: {x.status} · Source verification required
-                </p>
-                <p className="text-xs text-slate-500">
-                  Verification actions require the existing authenticated admin API.
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-slate-600">No published items currently require verification.</p>
-        )}
+        <p className="text-slate-600">
+          The current API only exposes published exam and opportunity listings. It has no
+          administrator queue endpoint for drafts or pending review, so this page cannot report
+          review work yet.
+        </p>
       </Panel>
     );
   if (route !== "exams" && route !== "opportunities")

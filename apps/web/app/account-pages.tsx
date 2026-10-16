@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import React, { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
@@ -10,6 +11,8 @@ import {
   type Opportunity,
   type ProfileUpdate,
   type StudentProfile,
+  type TestDetail,
+  type TestSubmission,
 } from "@elevra/api-client";
 import { usePathname } from "next/navigation";
 import { authenticatedApi, useAuth } from "./auth-provider";
@@ -235,6 +238,7 @@ export function ProfilePage() {
 }
 
 type Bookmark = { id: string; entity_type: string; entity_id: string; created_at: string };
+type ResolvedBookmark = Bookmark & { title?: string; href?: string };
 type Attempt = {
   id: string;
   test_id: string;
@@ -375,7 +379,12 @@ export function DashboardPage() {
           <ul className="mt-4 divide-y divide-[#edf0ec]">
             {attempts.slice(0, 5).map((attempt) => (
               <li key={attempt.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm">
-                <span>Test {attempt.test_id}</span>
+                <Link
+                  href={`/tests/${attempt.test_id}`}
+                  className="font-semibold text-[#145b48] underline underline-offset-4"
+                >
+                  Practice test
+                </Link>
                 <span className="text-[#63736c]">
                   {attempt.submitted_at
                     ? `${attempt.score ?? 0} / ${attempt.total_questions} correct`
@@ -442,16 +451,287 @@ function NotificationRow({
   );
 }
 
-export function SavedPage() {
+export function NotificationsPage() {
   const { withSession } = useAuth();
-  const [items, setItems] = useState<Bookmark[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      setItems(await withSession((token) => authenticatedApi.listBookmarks(token)));
+      setNotifications(await withSession((token) => authenticatedApi.listNotifications(token)));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load notifications.");
+    } finally {
+      setLoading(false);
+    }
+  }, [withSession]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  async function markRead(id: string) {
+    await withSession((token) => authenticatedApi.markNotificationRead(id, token));
+    setNotifications((items) =>
+      items.map((item) => (item.id === id ? { ...item, read_at: new Date().toISOString() } : item)),
+    );
+  }
+  if (loading)
+    return (
+      <main className="mx-auto max-w-4xl px-5 py-12" aria-live="polite">
+        Loading notifications…
+      </main>
+    );
+  if (error)
+    return (
+      <AccountError title="Notifications unavailable" message={error} retry={() => void load()} />
+    );
+  return (
+    <main className="mx-auto max-w-4xl px-5 py-12 lg:px-8">
+      <p className="text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">Your account</p>
+      <h1 className="mt-3 text-4xl font-semibold tracking-tight">Notifications</h1>
+      {notifications.length ? (
+        <ul className="mt-8 divide-y divide-[#edf0ec] rounded-2xl border border-[#e3e9e4] bg-white px-5">
+          {notifications.map((notification) => (
+            <NotificationRow
+              key={notification.id}
+              notification={notification}
+              onRead={() => markRead(notification.id)}
+            />
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-8 rounded-2xl border border-dashed border-[#cbd8ce] bg-white p-8 text-center text-sm text-[#63736c]">
+          You have no notifications yet.
+        </div>
+      )}
+    </main>
+  );
+}
+
+export function PracticeTestPage({ testId }: { testId: string }) {
+  const { withSession } = useAuth();
+  const [test, setTest] = useState<TestDetail | null>(null);
+  const [attemptId, setAttemptId] = useState("");
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [result, setResult] = useState<TestSubmission | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const item = await authenticatedApi.getTest(testId);
+      setTest(item);
+      const history = await withSession((token) => authenticatedApi.listTestAttempts(token));
+      const active = history.find((attempt) => attempt.test_id === testId && !attempt.submitted_at);
+      if (active) {
+        setAttemptId(active.id);
+        const existing = await withSession((token) =>
+          authenticatedApi.getTestAttempt(active.id, token),
+        );
+        setAnswers(
+          Object.fromEntries(
+            existing.answers
+              .filter((answer) => answer.option_id)
+              .map((answer) => [answer.question_id, answer.option_id as string]),
+          ),
+        );
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load this practice test.");
+    } finally {
+      setLoading(false);
+    }
+  }, [testId, withSession]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  async function start() {
+    setBusy(true);
+    setError("");
+    try {
+      const started = await withSession((token) => authenticatedApi.startTest(testId, token));
+      setAttemptId(started.attempt_id);
+      setTest(started.test);
+      setMessage("Your attempt is ready. Answers are saved as you choose them.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to start this test.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function choose(questionId: string, optionId: string) {
+    if (!attemptId) return;
+    setAnswers((current) => ({ ...current, [questionId]: optionId }));
+    setError("");
+    try {
+      await withSession((token) =>
+        authenticatedApi.saveTestAnswer(attemptId, questionId, optionId, token),
+      );
+      setMessage("Answer saved.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to save your answer.");
+    }
+  }
+  async function submit() {
+    if (!attemptId) return;
+    setBusy(true);
+    setError("");
+    try {
+      setResult(await withSession((token) => authenticatedApi.submitTest(attemptId, token)));
+      setAttemptId("");
+      setMessage("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to submit your test.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (loading)
+    return (
+      <main className="mx-auto max-w-4xl px-5 py-12" aria-live="polite">
+        Loading practice test…
+      </main>
+    );
+  if (error && !test)
+    return (
+      <AccountError title="Practice test unavailable" message={error} retry={() => void load()} />
+    );
+  if (!test) return null;
+  return (
+    <main className="mx-auto max-w-4xl px-5 py-12 lg:px-8">
+      <Link href="/tests" className="text-sm font-semibold text-[#145b48]">
+        ← Back to practice tests
+      </Link>
+      <p className="mt-6 text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">
+        {test.duration_minutes} minutes
+      </p>
+      <h1 className="mt-2 text-4xl font-semibold tracking-tight">{test.title}</h1>
+      {test.description && <p className="mt-3 leading-7 text-[#63736c]">{test.description}</p>}
+      {result ? (
+        <section className="mt-8 rounded-2xl border border-[#e3e9e4] bg-white p-7" role="status">
+          <h2 className="text-2xl font-semibold">Attempt submitted</h2>
+          <p className="mt-2 text-[#63736c]">
+            Score: {result.score} of {result.total_questions}
+          </p>
+          <Link
+            href="/dashboard"
+            className="mt-5 inline-flex font-semibold text-[#145b48] underline"
+          >
+            View your dashboard
+          </Link>
+        </section>
+      ) : !attemptId ? (
+        <section className="mt-8 rounded-2xl border border-[#e3e9e4] bg-white p-7">
+          <p className="text-[#63736c]">
+            This test has {test.questions.length} questions. Start when you’re ready; your attempt
+            will be tied to your account.
+          </p>
+          <button
+            disabled={busy}
+            onClick={() => void start()}
+            className="mt-5 rounded-xl bg-[#145b48] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            {busy ? "Starting…" : "Start or continue test"}
+          </button>
+        </section>
+      ) : (
+        <div className="mt-8 space-y-4">
+          {test.questions.map((question, index) => (
+            <fieldset
+              key={question.id}
+              className="rounded-2xl border border-[#e3e9e4] bg-white p-6"
+            >
+              <legend className="px-1 font-semibold">
+                {index + 1}. {question.text}
+              </legend>
+              <div className="mt-4 grid gap-2">
+                {question.options.map((option) => (
+                  <label
+                    key={option.id}
+                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#e3e9e4] p-3 hover:bg-[#f7f8f4]"
+                  >
+                    <input
+                      type="radio"
+                      name={question.id}
+                      value={option.id}
+                      checked={answers[question.id] === option.id}
+                      onChange={() => void choose(question.id, option.id)}
+                      className="mt-1 accent-[#145b48]"
+                    />
+                    <span>{option.text}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ))}
+          <button
+            disabled={busy}
+            onClick={() => void submit()}
+            className="rounded-xl bg-[#145b48] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            {busy ? "Submitting…" : "Submit attempt"}
+          </button>
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-800">
+          {error}
+        </p>
+      )}
+      {message && (
+        <p role="status" className="mt-4 text-sm text-[#42634e]">
+          {message}
+        </p>
+      )}
+    </main>
+  );
+}
+
+export function SavedPage() {
+  const { withSession } = useAuth();
+  const [items, setItems] = useState<ResolvedBookmark[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const saved = await withSession((token) => authenticatedApi.listBookmarks(token));
+      const resolved = await Promise.all(
+        saved.map(async (item): Promise<ResolvedBookmark> => {
+          try {
+            if (item.entity_type === "exam") {
+              const record = await authenticatedApi.getExam(item.entity_id);
+              return { ...item, title: record.name, href: `/exams/${record.slug}` };
+            }
+            if (item.entity_type === "course") {
+              const record = await authenticatedApi.getCourse(item.entity_id);
+              return { ...item, title: record.title, href: `/courses/${record.id}` };
+            }
+            if (item.entity_type === "current_affair") {
+              const record = await authenticatedApi.getCurrentAffair(item.entity_id);
+              return { ...item, title: record.title, href: `/current-affairs/${record.id}` };
+            }
+            const record = await authenticatedApi.getOpportunity(item.entity_id);
+            const base =
+              item.entity_type === "internship"
+                ? "/internships"
+                : item.entity_type === "scholarship"
+                  ? "/scholarships"
+                  : item.entity_type === "competition"
+                    ? "/competitions"
+                    : "/jobs";
+            return { ...item, title: record.title, href: `${base}/${record.slug}` };
+          } catch {
+            return item;
+          }
+        }),
+      );
+      setItems(resolved);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load saved items.");
     } finally {
@@ -485,7 +765,19 @@ export function SavedPage() {
           {items.map((item) => (
             <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
               <div>
-                <p className="font-semibold">{item.entity_type.replaceAll("_", " ")}</p>
+                {item.href ? (
+                  <Link
+                    href={item.href as Route}
+                    className="font-semibold text-[#145b48] underline underline-offset-4"
+                  >
+                    {item.title}
+                  </Link>
+                ) : (
+                  <p className="font-semibold">{item.title || "Saved listing unavailable"}</p>
+                )}
+                <p className="mt-1 text-xs capitalize text-[#63736c]">
+                  {item.entity_type.replaceAll("_", " ")}
+                </p>
                 <p className="mt-1 text-xs text-[#63736c]">Record ID: {item.entity_id}</p>
               </div>
               <button

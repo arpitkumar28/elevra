@@ -104,4 +104,13 @@ class Settings:
     )
 
 
+def validate_security_settings(config: Settings) -> None:
+    """Fail closed when deployment would sign tokens with the development key."""
+    if config.environment not in {"development", "test"} and (
+        config.jwt_secret.strip().lower() in {"", "change-me", "secret", "your-secret-key"}
+        or len(config.jwt_secret) < 32
+    ):
+        raise RuntimeError("JWT_SECRET must be a non-placeholder value of at least 32 characters outside development")
+
+
 settings = Settings()

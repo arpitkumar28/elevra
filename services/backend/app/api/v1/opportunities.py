@@ -52,7 +52,10 @@ def list_opportunities(
 
 @router.get("/{slug}", response_model=OpportunityResponse)
 def get_opportunity(slug: str, db: Annotated[Session, Depends(get_db)]):
-    opportunity = db.query(Opportunity).filter(Opportunity.slug == slug, Opportunity.status == OpportunityStatus.published).first()
+    opportunity = db.query(Opportunity).filter(
+        or_(Opportunity.slug == slug, Opportunity.id == slug),
+        Opportunity.status == OpportunityStatus.published,
+    ).first()
     if not opportunity:
         raise HTTPException(status_code=404, detail="opportunity not found")
     return opportunity

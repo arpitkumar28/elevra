@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from app.db.session import get_db
+from app.core.config import settings
 from app.infrastructure.security.jwt import decode_access_token
 from app.models.user import User
 from app.schemas.users import CurrentUser
@@ -42,6 +43,8 @@ async def get_current_user(
 
     subject = str(payload.get("sub"))
     if subject == "00000000-0000-4000-8000-000000000001":
+        if settings.environment not in {"development", "test"}:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="authentication required")
         roles = payload.get("roles") or ["student"]
         permissions = payload.get("permissions") or []
         return CurrentUser(

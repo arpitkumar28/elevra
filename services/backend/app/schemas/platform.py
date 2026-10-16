@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 ContentStatus = Literal["draft", "pending_review", "verified", "published", "rejected", "expired"]
 TestType = Literal["mock", "practice", "topic", "previous_year"]
@@ -99,3 +99,19 @@ class ApplicationWrite(BaseModel):
     external_url: str | None = Field(default=None, max_length=2048)
     status: ApplicationStatus = "saved"
     notes: str | None = None
+
+
+class ApplicationUpdate(BaseModel):
+    opportunity_id: str | None = Field(default=None, max_length=36)
+    title: str | None = Field(default=None, min_length=2, max_length=255)
+    organization: str | None = Field(default=None, max_length=255)
+    external_url: str | None = Field(default=None, max_length=2048)
+    status: ApplicationStatus | None = None
+    notes: str | None = None
+
+    @field_validator("title", "status", mode="before")
+    @classmethod
+    def required_values_cannot_be_null(cls, value):
+        if value is None:
+            raise ValueError("value cannot be null")
+        return value

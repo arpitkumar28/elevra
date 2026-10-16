@@ -10,13 +10,15 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError
 
 from app.api.v1.router import router as v1_router
-from app.core.config import settings
+from app.core.config import settings, validate_security_settings
 from app.core.logging import configure_logging
 from app.db.session import engine
 from app.infrastructure.cache import cache_client
 
 configure_logging()
 logger = logging.getLogger("app.request")
+
+validate_security_settings(settings)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -33,6 +35,9 @@ app = FastAPI(
     description="Foundational API for Elevra",
     lifespan=lifespan,
 )
+
+if "*" in settings.allowed_origins:
+    raise RuntimeError("CORS_ORIGINS must list explicit origins when credentialed requests are enabled")
 
 app.add_middleware(
     CORSMiddleware,

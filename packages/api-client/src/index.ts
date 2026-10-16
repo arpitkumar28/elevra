@@ -87,6 +87,36 @@ export type Notification = {
   read_at?: string;
   created_at: string;
 };
+export type TestSummary = {
+  id: string;
+  slug: string;
+  title: string;
+  description?: string;
+  type: string;
+  duration_minutes: number;
+};
+export type TestDetail = TestSummary & {
+  questions: Array<{
+    id: string;
+    text: string;
+    position: number;
+    options: Array<{ id: string; text: string; position: number }>;
+  }>;
+};
+export type TestStart = { attempt_id: string; started_at: string; test: TestDetail };
+export type TestSubmission = {
+  attempt_id: string;
+  score: number;
+  total_questions: number;
+  submitted_at: string;
+};
+export type TestAttemptDetail = {
+  id: string;
+  test_id: string;
+  started_at: string;
+  submitted_at?: string;
+  answers: Array<{ question_id: string; option_id: string | null }>;
+};
 export type AuthTokens = {
   access_token: string;
   refresh_token: string;
@@ -227,21 +257,10 @@ export function createApiClient({ baseUrl, fetch: fetcher = fetch }: ApiClientOp
     listCurrentAffairs: (params: Record<string, string | number | boolean | undefined> = {}) =>
       request<Page<CurrentAffair>>(`/current-affairs${query(params)}`),
     getCurrentAffair: (id: string) => request<CurrentAffair>(`/current-affairs/${id}`),
-    listTests: () =>
-      request<Array<{ id: string; title: string; type: string; duration_minutes: number }>>(
-        "/tests",
-      ),
-    getTest: (id: string) =>
-      request<{
-        id: string;
-        questions: Array<{
-          id: string;
-          text: string;
-          options: Array<{ id: string; text: string }>;
-        }>;
-      }>(`/tests/${id}`),
+    listTests: () => request<TestSummary[]>("/tests"),
+    getTest: (id: string) => request<TestDetail>(`/tests/${id}`),
     startTest: (id: string, token: string) =>
-      request<{ attempt_id: string }>(`/tests/${id}/start`, {
+      request<TestStart>(`/tests/${id}/start`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       }),
@@ -252,8 +271,12 @@ export function createApiClient({ baseUrl, fetch: fetcher = fetch }: ApiClientOp
         headers: { Authorization: `Bearer ${token}` },
       }),
     submitTest: (attemptId: string, token: string) =>
-      request<{ score: number; total_questions: number }>(`/tests/attempts/${attemptId}/submit`, {
+      request<TestSubmission>(`/tests/attempts/${attemptId}/submit`, {
         method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    getTestAttempt: (attemptId: string, token: string) =>
+      request<TestAttemptDetail>(`/tests/attempts/${attemptId}`, {
         headers: { Authorization: `Bearer ${token}` },
       }),
     listBookmarks: (token: string) =>

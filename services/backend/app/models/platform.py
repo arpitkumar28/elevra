@@ -51,6 +51,7 @@ class CurrentAffair(Base):
 
 
 class Test(Base):
+    __test__ = False
     __tablename__ = "tests"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_id)
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)

@@ -45,7 +45,10 @@ def list_exams(
 
 @router.get("/{slug}", response_model=ExamResponse)
 def get_exam(slug: str, db: Annotated[Session, Depends(get_db)]):
-    exam = db.query(Exam).filter(Exam.slug == slug, Exam.status == PublicationStatus.published).first()
+    exam = db.query(Exam).filter(
+        or_(Exam.slug == slug, Exam.id == slug),
+        Exam.status == PublicationStatus.published,
+    ).first()
     if not exam:
         raise HTTPException(status_code=404, detail="exam not found")
     return exam

@@ -57,6 +57,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <p className="font-bold text-slate-800">Account</p>
                   <p className="mt-2">
                     <Link href="/dashboard">Dashboard</Link> · <Link href="/profile">Profile</Link>
+                    <br />
+                    <Link href="/saved">Saved</Link> ·{" "}
+                    <Link href="/notifications">Notifications</Link>
                   </p>
                 </div>
                 <div>

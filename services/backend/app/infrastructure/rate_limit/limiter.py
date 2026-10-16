@@ -10,11 +10,21 @@ from fastapi import HTTPException, Request, status
 
 from app.core.config import settings
 
+def _parse_limit(value: str) -> dict[str, int]:
+    count, separator, period = value.partition("/")
+    if not separator or not count.isdigit() or int(count) < 1:
+        raise ValueError(f"Invalid rate limit: {value}")
+    windows = {"second": 1, "minute": 60, "hour": 3600}
+    if period not in windows:
+        raise ValueError(f"Invalid rate limit period: {value}")
+    return {"max_requests": int(count), "window_seconds": windows[period]}
+
+
 _LIMITS = {
-    "login": {"max_requests": 10, "window_seconds": 60},
-    "register": {"max_requests": 5, "window_seconds": 60},
-    "refresh": {"max_requests": 10, "window_seconds": 60},
-    "password_reset": {"max_requests": 5, "window_seconds": 60},
+    "login": _parse_limit(settings.rate_limit_login),
+    "register": _parse_limit(settings.rate_limit_register),
+    "refresh": _parse_limit(settings.rate_limit_refresh),
+    "password_reset": _parse_limit(settings.rate_limit_password_reset),
 }
 
 _store: dict[str, list[float]] = defaultdict(list)
@@ -34,7 +44,8 @@ limiter = _Limiter()
 def _client_key(request: Request) -> str:
     if request.client is None:
         return "unknown"
-    return request.headers.get("x-forwarded-for", request.client.host)
+    # Never accept a caller-controlled forwarding header as the rate-limit identity.
+    return request.client.host
 
 
 def rate_limit(name: str):

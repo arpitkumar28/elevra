@@ -79,6 +79,26 @@ def attempt_history(db: Annotated[Session, Depends(get_db)], user=Depends(get_cu
     return [{"id": item.id, "test_id": item.test_id, "score": item.score, "total_questions": item.total_questions, "started_at": item.started_at, "submitted_at": item.submitted_at} for item in db.query(TestAttempt).filter(TestAttempt.user_id == user.id).order_by(TestAttempt.started_at.desc()).all()]
 
 
+@router.get("/attempts/{attempt_id}")
+def get_attempt(attempt_id: str, db: Annotated[Session, Depends(get_db)], user=Depends(get_current_user)):
+    attempt = db.query(TestAttempt).filter(
+        TestAttempt.id == attempt_id,
+        TestAttempt.user_id == user.id,
+    ).first()
+    if not attempt:
+        raise HTTPException(status_code=404, detail="attempt not found")
+    answers = db.query(TestAnswer).filter(TestAnswer.attempt_id == attempt.id).all()
+    return {
+        "id": attempt.id,
+        "test_id": attempt.test_id,
+        "started_at": attempt.started_at,
+        "submitted_at": attempt.submitted_at,
+        "answers": [
+            {"question_id": answer.question_id, "option_id": answer.option_id}
+            for answer in answers
+        ],
+    }
+
 @router.post("/admin", status_code=status.HTTP_201_CREATED)
 def create_test(payload: TestWrite, request: Request, db: Annotated[Session, Depends(get_db)], admin=Depends(require_admin)):
     if db.query(Test.id).filter(Test.slug == payload.slug).first(): raise HTTPException(status_code=409, detail="slug already exists")

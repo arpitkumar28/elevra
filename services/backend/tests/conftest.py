@@ -28,6 +28,13 @@ from app.models.platform import Application, AuditLog, Bookmark, Course, Current
 from app.services.auth import create_access_token
 
 
+@pytest.fixture(autouse=True)
+def clear_rate_limit_state():
+    from app.infrastructure.rate_limit.limiter import _store
+
+    _store.clear()
+
+
 @pytest.fixture()
 def db() -> Generator[Session, None, None]:
     engine = create_engine(

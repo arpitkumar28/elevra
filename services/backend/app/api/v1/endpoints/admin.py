@@ -4,7 +4,7 @@ from typing import Annotated
 
 from app.api.dependencies.auth import require_permission
 from app.schemas.users import CurrentUser
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -13,11 +13,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 async def admin_overview(
     _: Annotated[CurrentUser, Depends(require_permission("analytics:read"))],
 ) -> dict[str, object]:
-    return {
-        "users": {"active": 2400000, "growthRate": 0.18},
-        "opportunities": {"pendingApproval": 184, "approved": 12640},
-        "ai": {"reviewQueue": 42, "evaluationPassRate": 0.973},
-        "crawler": {"successRate": 0.9994, "blockedSources": 7},
-        "notifications": {"queued": 1290, "deliveryRate": 0.992},
-        "system": {"apiP95Ms": 142, "searchP95Ms": 38},
-    }
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Admin overview metrics are not connected to live operational data",
+    )
