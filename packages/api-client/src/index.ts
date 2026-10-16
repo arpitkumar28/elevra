@@ -41,6 +41,88 @@ export type Page<T> = {
   total: number;
   total_pages: number;
 };
+export type Course = {
+  id: string;
+  title: string;
+  slug: string;
+  provider: string;
+  description?: string;
+  category?: string;
+  difficulty?: string;
+  duration?: string;
+  mode?: string;
+  skills: string[];
+  certificate: boolean;
+  course_url?: string;
+  official_url?: string;
+  status: string;
+};
+export type CurrentAffair = {
+  id: string;
+  title: string;
+  slug: string;
+  summary: string;
+  content: string;
+  category: string;
+  source: string;
+  source_url?: string;
+  published_at?: string;
+  status: string;
+};
+export type Bookmark = { id: string; entity_type: string; entity_id: string; created_at: string };
+export type Application = {
+  id: string;
+  opportunity_id?: string;
+  title: string;
+  organization?: string;
+  status: string;
+  notes?: string;
+  external_url?: string;
+};
+export type Notification = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  read_at?: string;
+  created_at: string;
+};
+export type AuthTokens = {
+  access_token: string;
+  refresh_token: string;
+  token_type: "bearer";
+  expires_in: number;
+};
+export type AuthUser = { id: string; email: string; name: string; role: string };
+export type ProfileUpdate = {
+  display_name?: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  phone?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  education_level?: string | null;
+  institution?: string | null;
+  degree?: string | null;
+  stream?: string | null;
+  graduation_year?: number | null;
+  exam_interests?: string[];
+  opportunity_interests?: string[];
+  preferred_locations?: string[];
+  remote_preference?: boolean;
+  career_interests?: string[];
+  target_roles?: string[];
+  skills?: string[];
+  experience_level?: string | null;
+  notification_preferences?: Record<string, boolean>;
+};
+export type StudentProfile = ProfileUpdate & {
+  id: string;
+  user_id: string;
+  goal?: string | null;
+  bio?: string | null;
+};
 
 const timeout = 10000;
 export type ApiClientOptions = { baseUrl: string; fetch?: typeof fetch };
@@ -70,8 +152,21 @@ export function createApiClient({ baseUrl, fetch: fetcher = fetch }: ApiClientOp
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
+        const detail = body.detail;
+        const validationMessage = Array.isArray(detail)
+          ? detail
+              .map((issue: { loc?: Array<string | number>; msg?: string }) => {
+                const field = issue.loc?.filter((part) => part !== "body").join(".");
+                return field ? `${field}: ${issue.msg || "Invalid value"}` : issue.msg;
+              })
+              .filter(Boolean)
+              .join(" ")
+          : undefined;
         throw new ApiError(
-          body.detail || "Something went wrong. Please try again.",
+          validationMessage ||
+            body.error?.message ||
+            detail ||
+            "Something went wrong. Please try again.",
           response.status,
         );
       }
@@ -90,12 +185,122 @@ export function createApiClient({ baseUrl, fetch: fetcher = fetch }: ApiClientOp
   }
   return {
     getHealth: () => fetcher(`${normalizedBaseUrl}/health`).then((r) => r.json()),
+    login: (email: string, password: string) =>
+      request<AuthTokens>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
+      }),
+    register: (name: string, email: string, password: string) =>
+      request<AuthTokens>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ name, email, password }),
+        credentials: "include",
+      }),
+    refreshSession: () =>
+      request<AuthTokens>("/auth/refresh", { method: "POST", credentials: "include" }),
+    logout: (token: string) =>
+      request<{ message: string }>("/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    getMe: (token: string) =>
+      request<AuthUser>("/auth/me", { headers: { Authorization: `Bearer ${token}` } }),
+    getProfile: (token: string) =>
+      request<StudentProfile>("/profile", { headers: { Authorization: `Bearer ${token}` } }),
+    updateProfile: (data: ProfileUpdate, token: string) =>
+      request<StudentProfile>("/profile", {
+        method: "PATCH",
+        body: JSON.stringify(data),
+        headers: { Authorization: `Bearer ${token}` },
+      }),
     listExams: (params: Record<string, string | number | boolean | undefined> = {}) =>
       request<Page<Exam>>(`/exams${query(params)}`),
     getExam: (slug: string) => request<Exam>(`/exams/${slug}`),
     listOpportunities: (params: Record<string, string | number | boolean | undefined> = {}) =>
       request<Page<Opportunity>>(`/opportunities${query(params)}`),
     getOpportunity: (slug: string) => request<Opportunity>(`/opportunities/${slug}`),
+    listCourses: (params: Record<string, string | number | boolean | undefined> = {}) =>
+      request<Page<Course>>(`/courses${query(params)}`),
+    getCourse: (id: string) => request<Course>(`/courses/${id}`),
+    listCurrentAffairs: (params: Record<string, string | number | boolean | undefined> = {}) =>
+      request<Page<CurrentAffair>>(`/current-affairs${query(params)}`),
+    getCurrentAffair: (id: string) => request<CurrentAffair>(`/current-affairs/${id}`),
+    listTests: () =>
+      request<Array<{ id: string; title: string; type: string; duration_minutes: number }>>(
+        "/tests",
+      ),
+    getTest: (id: string) =>
+      request<{
+        id: string;
+        questions: Array<{
+          id: string;
+          text: string;
+          options: Array<{ id: string; text: string }>;
+        }>;
+      }>(`/tests/${id}`),
+    startTest: (id: string, token: string) =>
+      request<{ attempt_id: string }>(`/tests/${id}/start`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    saveTestAnswer: (attemptId: string, questionId: string, optionId: string, token: string) =>
+      request<{ status: string }>(`/tests/attempts/${attemptId}/answers/${questionId}`, {
+        method: "PUT",
+        body: JSON.stringify({ option_id: optionId }),
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    submitTest: (attemptId: string, token: string) =>
+      request<{ score: number; total_questions: number }>(`/tests/attempts/${attemptId}/submit`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    listBookmarks: (token: string) =>
+      request<Bookmark[]>("/bookmarks", { headers: { Authorization: `Bearer ${token}` } }),
+    createBookmark: (entity_type: string, entity_id: string, token: string) =>
+      request<Bookmark>("/bookmarks", {
+        method: "POST",
+        body: JSON.stringify({ entity_type, entity_id }),
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    deleteBookmark: (id: string, token: string) =>
+      request<void>(`/bookmarks/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    listApplications: (token: string) =>
+      request<Application[]>("/applications", { headers: { Authorization: `Bearer ${token}` } }),
+    createApplication: (data: Partial<Application>, token: string) =>
+      request<Application>("/applications", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    updateApplication: (id: string, data: Partial<Application>, token: string) =>
+      request<Application>(`/applications/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    listNotifications: (token: string) =>
+      request<Notification[]>("/notifications", { headers: { Authorization: `Bearer ${token}` } }),
+    markNotificationRead: (id: string, token: string) =>
+      request<{ status: string }>(`/notifications/${id}/read`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    listTestAttempts: (token: string) =>
+      request<
+        Array<{
+          id: string;
+          test_id: string;
+          score?: number;
+          total_questions: number;
+          started_at: string;
+          submitted_at?: string;
+        }>
+      >("/tests/attempts/history", { headers: { Authorization: `Bearer ${token}` } }),
     createExam: (data: Partial<Exam>, token: string) =>
       request<Exam>("/exams", {
         method: "POST",

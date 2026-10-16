@@ -10,6 +10,8 @@ import {
   type Course,
   type CurrentAffair,
 } from "@elevra/api-client";
+import { AuthForm, ProtectedContent } from "../auth-components";
+import { DashboardPage, OpportunityAccountActions, ProfilePage, SavedPage } from "../account-pages";
 
 const apiClient = createApiClient({
   baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1",
@@ -313,19 +315,8 @@ function Detail({
                 {isExam ? "Visit official website" : "Apply on official website"} ↗
               </a>
             )}
-            <button
-              disabled
-              title="Saved items require the account API"
-              className="rounded-xl border border-slate-600 px-4 py-2 text-sm opacity-70"
-            >
-              Save (coming soon)
-            </button>
-            <button
-              onClick={() => navigator.share?.({ title: heading, url: location.href })}
-              className="rounded-xl border border-slate-600 px-4 py-2 text-sm"
-            >
-              Share
-            </button>
+            <OpportunityAccountActions item={item} isExam={isExam} />
+            <ShareControl title={heading} />
           </div>
         </header>
         <div className="grid gap-8 p-8 md:grid-cols-[1.4fr_1fr]">
@@ -383,6 +374,38 @@ function Detail({
         </div>
       </article>
     </main>
+  );
+}
+
+function ShareControl({ title }: { title: string }) {
+  const [message, setMessage] = useState("");
+  async function share() {
+    setMessage("");
+    try {
+      if (navigator.share) await navigator.share({ title, url: location.href });
+      else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(location.href);
+        setMessage("Page link copied.");
+      } else setMessage("Copy this page address from your browser to share it.");
+    } catch (cause) {
+      if (cause instanceof Error && cause.name !== "AbortError")
+        setMessage("Unable to share this page from this browser.");
+    }
+  }
+  return (
+    <div>
+      <button
+        onClick={() => void share()}
+        className="rounded-xl border border-slate-600 px-4 py-2 text-sm"
+      >
+        Share
+      </button>
+      {message && (
+        <p className="mt-2 text-xs text-white/80" role="status">
+          {message}
+        </p>
+      )}
+    </div>
   );
 }
 function Home() {
@@ -582,30 +605,26 @@ function Home() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
-              ...exams
-                .slice(0, 2)
-                .map((item) => ({
-                  label: item.name,
-                  category: titleize(item.category),
-                  org: item.conducting_body || "Exam information",
-                  href: `/exams/${item.slug}`,
-                  meta: item.application_deadline
-                    ? `Deadline ${date(item.application_deadline)}`
-                    : "Dates to be announced",
-                })),
-              ...opportunities
-                .slice(0, 4)
-                .map((item) => ({
-                  label: item.title,
-                  category: titleize(item.type),
-                  org: item.organization || "Opportunity",
-                  href: `/opportunities/${item.slug}`,
-                  meta: item.deadline
-                    ? `Deadline ${date(item.deadline)}`
-                    : item.remote
-                      ? "Remote"
-                      : item.location || "Location to be announced",
-                })),
+              ...exams.slice(0, 2).map((item) => ({
+                label: item.name,
+                category: titleize(item.category),
+                org: item.conducting_body || "Exam information",
+                href: `/exams/${item.slug}`,
+                meta: item.application_deadline
+                  ? `Deadline ${date(item.application_deadline)}`
+                  : "Dates to be announced",
+              })),
+              ...opportunities.slice(0, 4).map((item) => ({
+                label: item.title,
+                category: titleize(item.type),
+                org: item.organization || "Opportunity",
+                href: `/opportunities/${item.slug}`,
+                meta: item.deadline
+                  ? `Deadline ${date(item.deadline)}`
+                  : item.remote
+                    ? "Remote"
+                    : item.location || "Location to be announced",
+              })),
             ]
               .slice(0, 3)
               .map((item) => (
@@ -648,40 +667,6 @@ function Home() {
           </Link>
         </div>
       </section>
-    </main>
-  );
-}
-
-function Dashboard() {
-  return (
-    <main className="mx-auto max-w-5xl px-5 py-12 lg:px-8">
-      <p className="text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">Your space</p>
-      <h1 className="mt-3 text-4xl font-semibold tracking-tight">Your plans, all in one place.</h1>
-      <p className="mt-4 max-w-2xl leading-7 text-[#63736c]">
-        Sign in to access account features. Your saved items, applications and notifications are
-        connected to your account.
-      </p>
-      <div className="mt-8 rounded-2xl border border-[#e3e9e4] bg-white p-6 sm:p-8">
-        <h2 className="text-xl font-semibold">Account access</h2>
-        <p className="mt-2 max-w-xl text-sm leading-6 text-[#63736c]">
-          The web app does not yet connect its account screens to the authentication API, so
-          personal dashboard data cannot be loaded here.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link
-            href="/login"
-            className="rounded-xl bg-[#145b48] px-5 py-3 text-sm font-semibold text-white"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/explore"
-            className="rounded-xl border border-[#d8e1da] px-5 py-3 text-sm font-semibold text-[#28483b]"
-          >
-            Explore opportunities
-          </Link>
-        </div>
-      </div>
     </main>
   );
 }
@@ -877,30 +862,19 @@ function ResourceHub({ route, slug }: { route: string; slug?: string }) {
 export default function RoutePage({ params }: { params: { slug?: string[] } }) {
   const parts = params.slug || [];
   if (!parts.length) return <Home />;
-  if (parts[0] === "dashboard") return <Dashboard />;
-  if (parts[0] === "login")
+  if (parts[0] === "dashboard")
     return (
-      <SimplePage
-        title="Welcome back"
-        eyebrow="Elevra account"
-        copy="Sign in to keep your study plan, saved opportunities, and exam progress in one place."
-      />
+      <ProtectedContent>
+        <DashboardPage />
+      </ProtectedContent>
     );
-  if (parts[0] === "register")
-    return (
-      <SimplePage
-        title="Create your account"
-        eyebrow="Start your journey"
-        copy="Join Elevra to discover trusted opportunities and prepare with a plan made for you."
-      />
-    );
+  if (parts[0] === "login") return <AuthForm mode="login" />;
+  if (parts[0] === "register") return <AuthForm mode="register" />;
   if (parts[0] === "profile")
     return (
-      <SimplePage
-        title="Your profile"
-        eyebrow="Account"
-        copy="Profile settings and personal preferences are available when account authentication is connected."
-      />
+      <ProtectedContent>
+        <ProfilePage />
+      </ProtectedContent>
     );
   if (parts[0] === "career")
     return (
@@ -934,7 +908,12 @@ export default function RoutePage({ params }: { params: { slug?: string[] } }) {
   }
   if (["courses", "current-affairs", "tests"].includes(parts[0]))
     return <ResourceHub route={parts[0]} slug={parts[1]} />;
-  if (parts[0] === "saved") return <Dashboard />;
+  if (parts[0] === "saved")
+    return (
+      <ProtectedContent>
+        <SavedPage />
+      </ProtectedContent>
+    );
   return (
     <main className="mx-auto max-w-4xl px-5 py-16">
       <h1 className="text-4xl font-bold">{titleize(parts[0])}</h1>

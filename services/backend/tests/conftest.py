@@ -24,6 +24,7 @@ from app.models.exam_syllabus import ExamSyllabus  # noqa: F401
 from app.models.opportunity import Opportunity  # noqa: F401
 from app.models.student_profile import StudentProfile  # noqa: F401
 from app.models.user import User
+from app.models.platform import Application, AuditLog, Bookmark, Course, CurrentAffair, Notification, Question, QuestionOption, Test, TestAnswer, TestAttempt  # noqa: F401
 from app.services.auth import create_access_token
 
 

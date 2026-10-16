@@ -164,9 +164,6 @@ def rotate_refresh_token(db: Session, refresh_token_value: str, *, request: Requ
         request=request,
         session_id=new_session_id,
     )
-    replacement.revoked_at = now
-    replacement.last_used_at = now
-    replacement.updated_at = now
     refresh_record.replaced_by = replacement.id
     user = refresh_record.user
     access_token = create_access_token(

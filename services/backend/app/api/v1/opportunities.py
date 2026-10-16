@@ -2,12 +2,11 @@ from math import ceil
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.infrastructure.security.jwt import decode_access_token
 from app.models.opportunity import Opportunity, OpportunityStatus, OpportunityType
 from app.schemas.opportunity import OpportunityCreate, OpportunityPage, OpportunityResponse, OpportunityUpdate
 from app.services.auth import require_admin
@@ -25,7 +24,6 @@ def _opportunity_values(payload: OpportunityCreate | OpportunityUpdate, *, parti
 
 @router.get("", response_model=OpportunityPage)
 def list_opportunities(
-    request: Request,
     db: Annotated[Session, Depends(get_db)],
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -35,41 +33,6 @@ def list_opportunities(
     remote: bool | None = None,
     verified: bool | None = None,
 ):
-    authorization = request.headers.get("authorization")
-    if authorization and authorization.startswith("Bearer "):
-        try:
-            payload = decode_access_token(authorization.split(" ", 1)[1])
-        except ValueError:
-            payload = {}
-        if str(payload.get("sub")) == "00000000-0000-4000-8000-000000000001":
-            static_title = q or "Global AI Scholars Program"
-            return OpportunityPage(
-                items=[{
-                    "id": "opp_scholarship_global_ai",
-                    "title": static_title,
-                    "slug": "global-ai-scholars-program",
-                    "type": OpportunityType.scholarship,
-                    "organization": "Elevra Verified Network",
-                    "description": "Merit-based scholarship for students building practical AI projects.",
-                    "eligibility": None,
-                    "location": location or "global",
-                    "remote": False,
-                    "application_url": "https://example.com/opportunities/global-ai-scholars",
-                    "source_url": "https://example.com/opportunities/global-ai-scholars",
-                    "deadline": "2026-10-31",
-                    "published_at": None,
-                    "status": OpportunityStatus.published,
-                    "verified": True,
-                    "verified_at": None,
-                    "created_at": "2026-01-01T00:00:00Z",
-                    "updated_at": "2026-01-01T00:00:00Z",
-                }],
-                page=page,
-                page_size=page_size,
-                total=1,
-                total_pages=1,
-            )
-
     query = db.query(Opportunity).filter(Opportunity.status == OpportunityStatus.published)
     if q:
         term = f"%{q.strip()}%"

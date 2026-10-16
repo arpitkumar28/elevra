@@ -17,6 +17,7 @@ from app.models.exam_pattern import ExamPattern
 from app.models.exam_dates import ExamDate
 from app.models.exam_faq import ExamFAQ
 from app.models.opportunity import Opportunity
+from app.models.platform import Application, AuditLog, Bookmark, Course, CurrentAffair, Notification, Question, QuestionOption, Test, TestAnswer, TestAttempt
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.alembic_database_url)

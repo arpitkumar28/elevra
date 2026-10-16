@@ -119,7 +119,7 @@ def test_refresh_replay_expired_and_revoked(client):
     refresh = tokens["refresh_token"]
     refreshed = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh})
     rotated = refreshed.json()["refresh_token"]
-    replay = client.post("/api/v1/auth/refresh", json={"refresh_token": rotated})
+    replay = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh})
     assert replay.status_code == 401
 
     expired_payload = jwt.encode(
