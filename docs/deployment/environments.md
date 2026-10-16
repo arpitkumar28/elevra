@@ -21,6 +21,22 @@ API version, for example `http://localhost:8000/api/v1` locally and
 sent to the browser. Do not put `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`,
 `SUPABASE_SERVICE_ROLE_KEY`, or private API keys in Vercel public variables.
 
+Configure `NEXT_PUBLIC_ADMIN_URL` in the student app and
+`NEXT_PUBLIC_STUDENT_APP_URL` in the admin app for cross-app navigation. Both
+apps use the same `NEXT_PUBLIC_API_BASE_URL` for FastAPI. The student app only
+shows its Admin Panel link after `/auth/me` verifies an `admin` or
+`super_admin` role; the admin app still performs its own session check, and
+all privileged operations remain protected by backend authorization.
+
+The currently reported Vercel deployments use separate `vercel.app` origins.
+Do not treat navigation as single sign-on: browser third-party-cookie policies
+can prevent the API's refresh cookie from being sent in this topology. Users
+may need to sign in separately in each app. If seamless SSO is required, first
+move both apps and the API to verified custom domains under a compatible
+parent site, then validate Secure, HttpOnly, SameSite, CORS, and cookie-domain
+behavior in supported browsers. Do not broaden the cookie domain or weaken
+cookie settings as a workaround.
+
 ## FastAPI configuration
 
 Render reads its service definitions from [`render.yaml`](../../render.yaml).

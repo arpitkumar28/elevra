@@ -1,19 +1,11 @@
 """Authentication endpoints for web, mobile, and future public API clients."""
 
-from typing import Annotated
-
-from app.api.dependencies.auth import get_current_user
-from app.infrastructure.security.jwt import create_access_token
-from app.schemas.users import CurrentUser, TokenPair
 from app.core.config import settings
-from fastapi import APIRouter, Depends, HTTPException, status
+from app.infrastructure.security.jwt import create_access_token
+from app.schemas.users import TokenPair
+from fastapi import APIRouter, HTTPException, status
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-@router.get("/me", response_model=CurrentUser)
-async def me(user: Annotated[CurrentUser, Depends(get_current_user)]) -> CurrentUser:
-    return user
 
 
 @router.post("/dev-token", response_model=TokenPair, include_in_schema=False)

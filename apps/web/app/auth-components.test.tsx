@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthForm, ProtectedContent } from "./auth-components";
+import { AuthForm, HeaderAuthControls, ProtectedContent } from "./auth-components";
 
 const mocks = vi.hoisted(() => ({
   useAuth: vi.fn(),
@@ -67,5 +67,25 @@ describe("auth routes", () => {
       </ProtectedContent>,
     );
     expect(screen.getByText("Private dashboard")).toBeDefined();
+  });
+
+  it("shows the admin navigation link only for a backend-verified admin role", () => {
+    mocks.useAuth.mockReturnValue({
+      status: "authenticated",
+      user: { id: "admin-id", name: "Admin", email: "admin@example.com", role: "admin" },
+      signOut: vi.fn(),
+    });
+    const { rerender } = render(<HeaderAuthControls />);
+    expect(screen.getByRole("link", { name: "Admin Panel" }).getAttribute("href")).toBe(
+      "http://localhost:3002",
+    );
+
+    mocks.useAuth.mockReturnValue({
+      status: "authenticated",
+      user: { id: "student-id", name: "Student", email: "student@example.com", role: "student" },
+      signOut: vi.fn(),
+    });
+    rerender(<HeaderAuthControls />);
+    expect(screen.queryByRole("link", { name: "Admin Panel" })).toBeNull();
   });
 });

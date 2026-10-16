@@ -265,8 +265,33 @@ export function createApiClient({ baseUrl, fetch: fetcher = fetch }: ApiClientOp
         credentials: "include",
         headers: { Authorization: `Bearer ${token}` },
       }),
-    getMe: (token: string) =>
-      request<AuthUser>("/auth/me", { headers: { Authorization: `Bearer ${token}` } }),
+    getMe: async (token: string) => {
+      // Normalize the legacy `name`/`role` response and the CurrentUser
+      // `full_name`/`roles` schema. This keeps clients compatible with either
+      // backend serialization while decisions still come from `/auth/me`.
+      const response = await request<Partial<AuthUser> & { full_name?: string; roles?: string[] }>(
+        "/auth/me",
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const name = response.name || response.full_name;
+      if (!response.id || !response.email || !name) {
+        throw new ApiError("Elevra returned an incomplete account identity.");
+      }
+      const roles = response.roles ?? [];
+      const role =
+        response.role ||
+        (roles.includes("super_admin")
+          ? "super_admin"
+          : roles.includes("admin")
+            ? "admin"
+            : roles[0] || "student");
+      return {
+        id: response.id,
+        email: response.email,
+        name,
+        role,
+      } satisfies AuthUser;
+    },
     getProfile: (token: string) =>
       request<StudentProfile>("/profile", { headers: { Authorization: `Bearer ${token}` } }),
     updateProfile: (data: ProfileUpdate, token: string) =>

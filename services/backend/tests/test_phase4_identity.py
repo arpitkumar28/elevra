@@ -183,6 +183,22 @@ def test_student_cannot_hit_admin_routes(client):
     assert response.json()["error"]["code"] == "FORBIDDEN"
 
 
+def test_current_user_endpoint_reports_database_admin_flag(client, db):
+    tokens = register_user(client, "verified-admin@example.com")
+    user = db.query(User).filter(User.email == "verified-admin@example.com").one()
+    user.is_admin = True
+    db.commit()
+
+    response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "admin"
+    assert response.json()["email"] == "verified-admin@example.com"
+
+
 def test_malformed_and_expired_jwt_are_rejected(client):
     malformed = client.get(
         "/api/v1/auth/me",

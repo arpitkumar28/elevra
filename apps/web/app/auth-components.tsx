@@ -244,6 +244,16 @@ export function HeaderAuthControls() {
   }
   return (
     <div className="flex items-center gap-2 text-sm font-semibold">
+      {(user.role === "admin" || user.role === "super_admin") && (
+        <a
+          href={process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3002"}
+          aria-label="Admin Panel"
+          className="rounded-lg border border-[#d8e1da] px-2 py-2 text-[#155b48] transition hover:bg-white sm:px-3"
+        >
+          <span className="sm:hidden">Admin</span>
+          <span className="hidden sm:inline">Admin Panel</span>
+        </a>
+      )}
       <Link
         href="/dashboard"
         className="hidden max-w-36 truncate rounded-lg px-2 py-2 text-[#28483b] sm:block"
