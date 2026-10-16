@@ -3,6 +3,16 @@
 import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import {
+  ArrowRight,
+  BookOpenCheck,
+  BriefcaseBusiness,
+  ClipboardList,
+  FileText,
+  GraduationCap,
+  Newspaper,
+  Plus,
+} from "lucide-react";
+import {
   type AdminContentKind,
   type AdminQueueItem,
   type AdminTestDetail,
@@ -159,6 +169,8 @@ function AdminDashboard() {
   const { withSession } = useAuth();
   const [drafts, setDrafts] = useState<AdminQueueItem[]>([]);
   const [reviews, setReviews] = useState<AdminQueueItem[]>([]);
+  const [draftTotal, setDraftTotal] = useState(0);
+  const [reviewTotal, setReviewTotal] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
@@ -166,11 +178,13 @@ function AdminDashboard() {
     setError("");
     try {
       const [draftPage, reviewPage] = await withSession((token) => Promise.all([
-        api.listAdminQueue({ status: "draft", page: 1, page_size: 8 }, token),
-        api.listAdminQueue({ status: "pending_review", page: 1, page_size: 8 }, token),
+        api.listAdminQueue({ status: "draft", page: 1, page_size: 5 }, token),
+        api.listAdminQueue({ status: "pending_review", page: 1, page_size: 5 }, token),
       ]));
       setDrafts(draftPage.items);
       setReviews(reviewPage.items);
+      setDraftTotal(draftPage.total);
+      setReviewTotal(reviewPage.total);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load content activity.");
     } finally {
@@ -178,18 +192,169 @@ function AdminDashboard() {
     }
   }, [withSession]);
   useEffect(() => { void load(); }, [load]);
-  return <main className="space-y-7">
-    <header><p className="text-sm font-bold uppercase tracking-[.14em] text-[#668b59]">Content operations</p><h1 className="mt-2 text-3xl font-semibold">Admin dashboard</h1><p className="mt-2 text-slate-600">Live counts come from persisted drafts and review submissions.</p></header>
-    {error && <Feedback tone="error" message={error} retry={() => void load()} />}
-    {loading ? <p role="status" className="rounded-xl bg-white p-6">Loading admin content…</p> : <div className="grid gap-5 lg:grid-cols-2">
-      <QueuePreview title="Drafts" count={drafts.length} items={drafts} href="/queue?status=draft" />
-      <QueuePreview title="Pending review" count={reviews.length} items={reviews} href="/queue?status=pending_review" />
-    </div>}
-  </main>;
+  return (
+    <main className="mx-auto max-w-[1500px] space-y-7 pb-10">
+      <header className="relative isolate overflow-hidden rounded-[1.75rem] bg-[#174a3a] px-6 py-7 text-white shadow-[0_22px_55px_rgba(23,74,58,.15)] sm:px-9 sm:py-9">
+        <div className="pointer-events-none absolute -right-8 -top-24 -z-10 h-72 w-72 rounded-full border-[44px] border-white/[.06]" />
+        <div className="pointer-events-none absolute -bottom-36 right-1/4 -z-10 h-72 w-72 rounded-full bg-[#a7c68d]/10 blur-3xl" />
+        <div className="flex flex-col justify-between gap-7 sm:flex-row sm:items-end">
+          <div className="max-w-2xl">
+            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-[#d5e7c9]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#b7d49e]" /> Elevra content studio
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-[-.045em] sm:text-4xl">A clear view of what needs doing.</h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-white/75 sm:text-base">
+              Create and review the content that helps students decide what comes next.
+            </p>
+          </div>
+          <Link href="/exams" className="inline-flex w-fit shrink-0 items-center gap-2 rounded-xl bg-[#dce9d1] px-4 py-3 text-sm font-bold text-[#173b2f] transition hover:-translate-y-0.5 hover:bg-[#c9ddb9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <Plus size={17} aria-hidden="true" /> Create content
+          </Link>
+        </div>
+        <div className="mt-7 flex flex-wrap gap-2 text-xs font-medium text-white/75">
+          <span className="rounded-full border border-white/15 bg-white/[.07] px-3 py-1.5">Exams</span>
+          <span className="rounded-full border border-white/15 bg-white/[.07] px-3 py-1.5">Opportunities</span>
+          <span className="rounded-full border border-white/15 bg-white/[.07] px-3 py-1.5">Courses</span>
+          <span className="rounded-full border border-white/15 bg-white/[.07] px-3 py-1.5">Current affairs</span>
+          <span className="rounded-full border border-white/15 bg-white/[.07] px-3 py-1.5">Practice tests</span>
+        </div>
+      </header>
+
+      {error && <Feedback tone="error" message={error} retry={() => void load()} />}
+
+      <section aria-label="Content overview" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <DashboardMetric label="Drafts" value={loading ? null : draftTotal} note="Saved content not yet published" icon={FileText} tone="sage" />
+        <DashboardMetric label="Pending review" value={loading ? null : reviewTotal} note="Submissions awaiting a decision" icon={ClipboardList} tone="olive" />
+        <DashboardMetric label="Content areas" value={5} note="Manage the student resource library" icon={BookOpenCheck} tone="mint" />
+        <Link href="/queue" className="group flex min-h-[142px] items-center justify-between rounded-2xl border border-[#dbe6d8] bg-[#eef4e8] p-5 transition hover:border-[#bfd2b9] hover:bg-[#e7f0df] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#86a875]">
+          <span><span className="block text-sm font-bold text-[#28483b]">Open review queue</span><span className="mt-1 block text-xs leading-5 text-[#64736b]">See drafts and review items</span></span>
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-[#155b48] shadow-sm transition group-hover:translate-x-0.5"><ArrowRight size={17} aria-hidden="true" /></span>
+        </Link>
+      </section>
+
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,.75fr)]">
+        <section className="space-y-6" aria-label="Recent content activity">
+          <QueuePreview title="Pending review" description="Review these submissions before they move forward." count={reviewTotal} items={reviews} href="/queue?status=pending_review" icon={ClipboardList} loading={loading} />
+          <QueuePreview title="Recently saved drafts" description="Pick up where you left off with unpublished content." count={draftTotal} items={drafts} href="/queue?status=draft" icon={FileText} loading={loading} />
+        </section>
+        <QuickCreatePanel />
+      </div>
+    </main>
+  );
 }
 
-function QueuePreview({ title, count, items, href }: { title: string; count: number; items: AdminQueueItem[]; href: string }) {
-  return <section className="rounded-2xl border border-[#e2e9e2] bg-white p-5 sm:p-6"><div className="flex items-center justify-between"><div><h2 className="text-xl font-semibold">{title}</h2><p className="mt-1 text-sm text-slate-500">{count} shown in the latest persisted records</p></div><Link href={href as never} className="rounded-lg border px-3 py-2 text-sm font-semibold text-[#145b48] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">View queue</Link></div>{items.length ? <ul className="mt-4 divide-y">{items.slice(0, 5).map(item => <li key={`${item.kind}-${item.id}`} className="flex flex-wrap items-center justify-between gap-2 py-3"><span className="font-medium">{titleOf(item)}</span><span className="text-xs text-slate-500">{titles[item.kind]}</span></li>)}</ul> : <p className="mt-5 rounded-xl bg-[#f7f8f4] p-4 text-sm text-slate-600">No {title.toLowerCase()} are waiting right now.</p>}</section>;
+function DashboardMetric({
+  label,
+  value,
+  note,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: number | null;
+  note: string;
+  icon: typeof FileText;
+  tone: "sage" | "olive" | "mint";
+}) {
+  const tones = {
+    sage: "bg-[#eaf1e5] text-[#42634e]",
+    olive: "bg-[#f1f3e7] text-[#667344]",
+    mint: "bg-[#e8f2ed] text-[#3d6a59]",
+  };
+  return (
+    <article className="rounded-2xl border border-[#e1e8e1] bg-white p-5 shadow-[0_8px_24px_rgba(25,54,39,.035)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-[#64736b]">{label}</p>
+          <p className="mt-3 text-3xl font-semibold tracking-[-.05em] text-[#17251f]" aria-live="polite">
+            {value === null ? <span className="inline-block h-9 w-12 animate-pulse rounded-lg bg-[#edf1eb]" aria-label="Loading" /> : value}
+          </p>
+        </div>
+        <span className={`grid h-10 w-10 place-items-center rounded-xl ${tones[tone]}`}><Icon size={19} strokeWidth={1.8} aria-hidden="true" /></span>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-[#7a867e]">{note}</p>
+    </article>
+  );
+}
+
+function QueuePreview({
+  title,
+  description,
+  count,
+  items,
+  href,
+  icon: Icon,
+  loading,
+}: {
+  title: string;
+  description: string;
+  count: number;
+  items: AdminQueueItem[];
+  href: string;
+  icon: typeof FileText;
+  loading: boolean;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[#e1e8e1] bg-white shadow-[0_8px_24px_rgba(25,54,39,.035)]">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#edf1eb] px-5 py-5 sm:px-6">
+        <div className="flex items-center gap-3">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#eef4e8] text-[#42634e]"><Icon size={18} aria-hidden="true" /></span>
+          <div><h2 className="font-semibold tracking-tight text-[#20352a]">{title}</h2><p className="mt-0.5 text-xs text-[#7a867e]">{description}</p></div>
+        </div>
+        <div className="flex items-center gap-3">
+          {!loading && <span className="rounded-full bg-[#f3f6f0] px-2.5 py-1 text-xs font-bold text-[#42634e]">{count}</span>}
+          <Link href={href} className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#155b48] hover:text-[#104537] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#86a875]">View all <ArrowRight size={15} aria-hidden="true" /></Link>
+        </div>
+      </div>
+      {loading ? (
+        <div role="status" className="space-y-3 p-5 sm:p-6"><span className="sr-only">Loading {title.toLowerCase()}</span>{[0, 1, 2].map((item) => <div key={item} className="h-12 animate-pulse rounded-xl bg-[#f3f6f0]" />)}</div>
+      ) : items.length ? (
+        <ul className="divide-y divide-[#edf1eb] px-5 sm:px-6">
+          {items.map((item) => (
+            <li key={`${item.kind}-${item.id}`} className="flex items-center gap-3 py-3.5">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#f4f7f1] text-[#6f8568]"><ContentKindIcon kind={item.kind} /></span>
+              <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-[#263a30]">{titleOf(item)}</p><p className="mt-1 text-xs text-[#7a867e]">{titles[item.kind]} <span aria-hidden="true">·</span> {new Date(item.created_at).toLocaleDateString()}</p></div>
+              <StatusBadge value={item.status} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="px-6 py-8 text-center"><span className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-[#f3f6f0] text-[#71876a]"><Icon size={19} aria-hidden="true" /></span><p className="mt-3 text-sm font-semibold text-[#34493c]">Nothing here right now</p><p className="mt-1 text-xs text-[#7a867e]">New {title.toLowerCase()} will appear here.</p></div>
+      )}
+    </section>
+  );
+}
+
+function ContentKindIcon({ kind }: { kind: AdminContentKind }) {
+  const Icon = {
+    exams: GraduationCap,
+    opportunities: BriefcaseBusiness,
+    courses: BookOpenCheck,
+    "current-affairs": Newspaper,
+    tests: ClipboardList,
+  }[kind];
+  return <Icon size={17} strokeWidth={1.8} aria-hidden="true" />;
+}
+
+function QuickCreatePanel() {
+  const actions: Array<{ kind: AdminContentKind; label: string; detail: string; icon: typeof FileText }> = [
+    { kind: "exams", label: "Exam", detail: "Add exam details", icon: GraduationCap },
+    { kind: "opportunities", label: "Opportunity", detail: "Add a new listing", icon: BriefcaseBusiness },
+    { kind: "courses", label: "Course", detail: "Create a learning resource", icon: BookOpenCheck },
+    { kind: "current-affairs", label: "Current affairs", detail: "Write an article", icon: Newspaper },
+    { kind: "tests", label: "Practice test", detail: "Build a test", icon: ClipboardList },
+  ];
+  return (
+    <aside className="rounded-2xl border border-[#e1e8e1] bg-white p-5 shadow-[0_8px_24px_rgba(25,54,39,.035)] sm:p-6">
+      <div><p className="text-xs font-bold uppercase tracking-[.14em] text-[#668b59]">Quick create</p><h2 className="mt-2 text-xl font-semibold tracking-tight text-[#20352a]">Add to the library</h2><p className="mt-1 text-sm leading-6 text-[#7a867e]">Choose a content type to open its workspace.</p></div>
+      <ul className="mt-5 space-y-1.5">
+        {actions.map(({ kind, label, detail, icon: Icon }) => (
+          <li key={kind}><Link href={`/${kind}`} className="group flex items-center gap-3 rounded-xl p-3 transition hover:bg-[#f5f8f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#86a875]"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#eef4e8] text-[#42634e] transition group-hover:bg-[#e3eddb]"><Icon size={18} aria-hidden="true" /></span><span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-[#28483b]">{label}</span><span className="mt-0.5 block text-xs text-[#7a867e]">{detail}</span></span><ArrowRight size={16} className="text-[#91a294] transition group-hover:translate-x-0.5 group-hover:text-[#155b48]" aria-hidden="true" /></Link></li>
+        ))}
+      </ul>
+      <div className="mt-5 rounded-xl bg-[#f4f7f1] p-4"><p className="text-xs font-semibold text-[#42634e]">Publishing tip</p><p className="mt-1 text-xs leading-5 text-[#6d7b70]">Save as a draft first, then review the source and details before publishing.</p></div>
+    </aside>
+  );
 }
 
 function AdminQueue() {
