@@ -6,10 +6,10 @@ export default {
     extend: {
       colors: {
         brand: {
-          yellow: "#F5C542",
-          secondary: "#FFD966",
-          dark: "#111827",
-          background: "#FFFCF2",
+          primary: "#155b48",
+          sage: "#dce9d1",
+          dark: "#17251f",
+          background: "#f6f8f3",
           white: "#FFFFFF",
           success: "#16A34A",
         },

@@ -50,7 +50,7 @@ export function ProductNav() {
           <Link
             key={href}
             href={href as "/"}
-            className={`grid place-items-center gap-0.5 px-2 ${pathname === href ? "text-[#d99400]" : "text-slate-500"}`}
+            className={`grid place-items-center gap-0.5 px-2 ${pathname === href ? "text-[#155b48]" : "text-slate-500"}`}
           >
             <span className="text-base">{icon}</span>
             {label}

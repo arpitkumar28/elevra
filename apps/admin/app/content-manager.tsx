@@ -115,7 +115,7 @@ const titles: Record<AdminContentKind, string> = {
   tests: "Tests",
 };
 const statusClass = (value: string) =>
-  value === "published" ? "bg-[#e8f2e4] text-[#315d40]" : value === "pending_review" ? "bg-amber-50 text-amber-800" : "bg-slate-100 text-slate-700";
+  value === "published" ? "bg-[#e8f2e4] text-[#315d40]" : value === "pending_review" ? "bg-[#f1f3e7] text-[#667344]" : "bg-slate-100 text-slate-700";
 const inputClass = "mt-1 w-full rounded-xl border border-[#d8e1da] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#56816d] focus:ring-2 focus:ring-[#d5e7cf]";
 
 function contentActions(kind: AdminContentKind, row: ContentRow) {

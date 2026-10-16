@@ -32,11 +32,11 @@ function AdminSession({ children }: { children: ReactNode }) {
     );
   if (status === "error")
     return (
-      <section className="max-w-xl rounded-2xl bg-white p-8">
+      <section className="max-w-xl rounded-3xl border border-[#e1e8e1] bg-white p-8 shadow-[0_18px_48px_rgba(25,54,39,.08)]">
         <h1 className="text-2xl font-bold">Session unavailable</h1>
         <p className="mt-2">{error}</p>
         <button
-          className="mt-5 rounded-lg bg-[#145b48] px-4 py-2 text-white"
+          className="mt-5 rounded-xl bg-[#155b48] px-4 py-2.5 font-semibold text-white transition hover:bg-[#104537]"
           onClick={() => void retryRestore().catch(() => undefined)}
         >
           Try again
@@ -45,14 +45,17 @@ function AdminSession({ children }: { children: ReactNode }) {
     );
   if (status !== "authenticated" || !user)
     return (
-      <main className="mx-auto mt-16 max-w-md rounded-2xl bg-white p-8 shadow-sm">
+      <main className="mx-auto mt-12 max-w-md rounded-3xl border border-[#e1e8e1] bg-white p-8 shadow-[0_18px_48px_rgba(25,54,39,.08)] sm:mt-20 sm:p-10">
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#155b48] text-lg font-black text-[#dce9d1]">
+          e
+        </span>
         <h1 className="text-2xl font-bold">Admin sign in</h1>
         <p className="mt-2 text-sm text-slate-600">Sign in with an Elevra administrator account.</p>
         <form onSubmit={submit} className="mt-6 space-y-4">
           <label className="block text-sm font-medium">
             Email
             <input
-              className="mt-1 w-full rounded-lg border px-3 py-2"
+              className="mt-1 w-full rounded-xl border border-[#d8e1da] bg-white px-3.5 py-3 outline-none transition focus:border-[#56816d] focus:ring-2 focus:ring-[#d5e7cf]"
               type="email"
               autoComplete="username"
               required
@@ -63,7 +66,7 @@ function AdminSession({ children }: { children: ReactNode }) {
           <label className="block text-sm font-medium">
             Password
             <input
-              className="mt-1 w-full rounded-lg border px-3 py-2"
+              className="mt-1 w-full rounded-xl border border-[#d8e1da] bg-white px-3.5 py-3 outline-none transition focus:border-[#56816d] focus:ring-2 focus:ring-[#d5e7cf]"
               type="password"
               autoComplete="current-password"
               required
@@ -78,7 +81,7 @@ function AdminSession({ children }: { children: ReactNode }) {
           )}
           <button
             disabled={busy}
-            className="w-full rounded-lg bg-[#145b48] px-4 py-3 font-semibold text-white disabled:opacity-60"
+            className="w-full rounded-xl bg-[#155b48] px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-[#104537] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy ? "Signing in…" : "Sign in"}
           </button>

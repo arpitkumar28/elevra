@@ -57,7 +57,7 @@ const titleize = (value?: string) =>
 function Pill({ children, green = false }: { children: React.ReactNode; green?: boolean }) {
   return (
     <span
-      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${green ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-900"}`}
+      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${green ? "bg-[#e8f2e4] text-[#315d40]" : "bg-[#f1f5ed] text-[#42634e]"}`}
     >
       {children}
     </span>
@@ -70,7 +70,7 @@ function State({ message, retry }: { message: string; retry?: () => void }) {
       {retry && (
         <button
           onClick={retry}
-          className="mt-4 rounded-lg bg-[#F5C542] px-4 py-2 font-semibold text-slate-900"
+          className="mt-4 rounded-xl bg-[#155b48] px-4 py-2.5 font-semibold text-white transition hover:bg-[#104537]"
         >
           Try again
         </button>
@@ -118,7 +118,7 @@ function Listing({
   const filters = isExam ? examCategories : opportunityTypes;
   return (
     <main className="mx-auto max-w-7xl px-5 py-10">
-      <p className="text-sm font-semibold text-amber-700">DISCOVER YOUR NEXT STEP</p>
+      <p className="text-sm font-semibold text-[#668b59]">DISCOVER YOUR NEXT STEP</p>
       <h1 className="mt-2 text-4xl font-bold tracking-tight">
         {title || (isExam ? "Find the right exam" : "Find your next opportunity")}
       </h1>
@@ -137,7 +137,7 @@ function Listing({
             setQ(e.target.value);
           }}
           placeholder={`Search ${kind}, organizations, or categories`}
-          className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:ring-2 focus:ring-[#F5C542]"
+          className="min-w-0 flex-1 rounded-xl border border-[#d8e1da] px-4 py-3 outline-none focus:ring-2 focus:ring-[#d5e7cf]"
         />
         <select
           aria-label="Filter results"
@@ -164,7 +164,7 @@ function Listing({
               setPage(1);
               setFilter(filter === x ? "" : x);
             }}
-            className={`rounded-full border px-3 py-1.5 text-sm ${filter === x ? "border-amber-400 bg-amber-50" : "border-slate-200 bg-white"}`}
+            className={`rounded-full border px-3 py-1.5 text-sm transition ${filter === x ? "border-[#a9c19a] bg-[#eef4e8] text-[#28483b]" : "border-slate-200 bg-white hover:border-[#b7c9b8]"}`}
           >
             {titleize(x)}
           </button>
@@ -199,7 +199,7 @@ function Listing({
                   <Pill>{titleize(isExam ? e.category : o.type)}</Pill>
                   {item.verified && <Pill green>✓ Verified</Pill>}
                 </div>
-                <h2 className="mt-5 text-lg font-bold group-hover:text-amber-800">{label}</h2>
+                <h2 className="mt-5 text-lg font-bold group-hover:text-[#155b48]">{label}</h2>
                 <p className="mt-1 text-sm text-slate-600">
                   {isExam
                     ? e.conducting_body || "Conducting body to be announced"
@@ -299,12 +299,12 @@ function Detail({
     <main className="mx-auto max-w-4xl px-5 py-10">
       <Link
         href={(basePath || `/${kind}`) as "/exams"}
-        className="text-sm font-semibold text-amber-800"
+        className="text-sm font-semibold text-[#155b48]"
       >
         ← Back to {kind}
       </Link>
       <article className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <header className="bg-[#111827] p-8 text-white">
+        <header className="bg-[#173e32] p-8 text-white">
           <div className="flex flex-wrap gap-2">
             <Pill>{titleize(isExam ? e.category : o.type)}</Pill>
             {item.verified && <Pill green>✓ Verified source</Pill>}
@@ -317,7 +317,7 @@ function Detail({
                 href={source}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-xl bg-[#F5C542] px-4 py-2 font-bold text-slate-900"
+                className="rounded-xl bg-[#dce9d1] px-4 py-2 font-bold text-[#173b2f] transition hover:bg-[#c9ddb9]"
               >
                 {isExam ? "Visit official website" : "Apply on official website"} ↗
               </a>
@@ -352,7 +352,7 @@ function Detail({
             <section>
               <h2 className="text-xl font-bold">Official source</h2>
               <a
-                className="mt-3 inline-block text-amber-800 underline"
+                className="mt-3 inline-block text-[#155b48] underline underline-offset-4"
                 href={
                   (isExam
                     ? e.source_url || e.official_website
@@ -365,7 +365,7 @@ function Detail({
               </a>
             </section>
           </div>
-          <aside className="h-fit rounded-2xl bg-[#FFFCF2] p-5">
+          <aside className="h-fit rounded-2xl bg-[#f1f5ed] p-5">
             <h2 className="font-bold">At a glance</h2>
             <dl className="mt-4 space-y-4">
               {rows.map(([label, value]) => (

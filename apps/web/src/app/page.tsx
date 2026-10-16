@@ -11,7 +11,7 @@ export default function StudentHome() {
       <div className="mx-auto max-w-6xl">
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-6">
           <div>
-            <p className="text-sm font-medium text-teal-700">Student workspace</p>
+            <p className="text-sm font-medium text-[#155b48]">Student workspace</p>
             <h1 className="mt-1 text-3xl font-semibold">Today in Elevra</h1>
           </div>
           <div className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700">
@@ -25,7 +25,7 @@ export default function StudentHome() {
               className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
               key={tile.title}
             >
-              <span className="text-2xl text-teal-700">{tile.icon}</span>
+              <span className="text-2xl text-[#155b48]">{tile.icon}</span>
               <p className="mt-4 text-sm font-medium text-slate-600">{tile.title}</p>
               <p className="mt-2 text-3xl font-semibold">{tile.value}</p>
               <p className="mt-1 text-sm text-slate-500">{tile.label}</p>
