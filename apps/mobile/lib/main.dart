@@ -1,16 +1,18 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
-const brand = Color(0xFFF5C542);
-const apiUrl = String.fromEnvironment('API_URL',
+const brand = Color(0xFF155B48);
+const apiUrl = String.fromEnvironment('ELEVRA_API_BASE_URL',
     defaultValue: 'http://10.0.2.2:8000/api/v1');
+final apiBaseUrl = apiUrl.replaceFirst(RegExp(r'/+$'), '');
 void main() => runApp(const ElevraApp());
 
 class ApiRepository {
   Future<List<Map<String, dynamic>>> list(String path) async {
     final response = await http
-        .get(Uri.parse('$apiUrl/$path'))
+        .get(Uri.parse('$apiBaseUrl/$path'))
         .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) throw Exception('Could not load content');
     return List<Map<String, dynamic>>.from(jsonDecode(response.body)['items']);
@@ -18,7 +20,7 @@ class ApiRepository {
 
   Future<Map<String, dynamic>> get(String path, String slug) async {
     final response = await http
-        .get(Uri.parse('$apiUrl/$path/$slug'))
+        .get(Uri.parse('$apiBaseUrl/$path/$slug'))
         .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) throw Exception('Could not load this item');
     return Map<String, dynamic>.from(jsonDecode(response.body));
@@ -35,11 +37,11 @@ class ElevraApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(
                   seedColor: brand, brightness: Brightness.light)
               .copyWith(surface: Colors.white),
-          scaffoldBackgroundColor: const Color(0xFFFFFCF2),
+          scaffoldBackgroundColor: const Color(0xFFF6F8F3),
           useMaterial3: true,
           appBarTheme: const AppBarTheme(
-              backgroundColor: Color(0xFFFFFCF2),
-              foregroundColor: Color(0xFF172039),
+              backgroundColor: Color(0xFFF6F8F3),
+              foregroundColor: Color(0xFF17251F),
               elevation: 0,
               centerTitle: false),
           cardTheme: const CardThemeData(
@@ -62,7 +64,10 @@ class _ShellState extends State<Shell> {
   @override
   Widget build(BuildContext context) {
     final screens = [
-      const Home(),
+      Home(
+        onExplore: () => setState(() => tab = 1),
+        onNotifications: () => setState(() => tab = 3),
+      ),
       const Explore(),
       const PlaceholderScreen(
           icon: Icons.bookmark_outline,
@@ -71,11 +76,13 @@ class _ShellState extends State<Shell> {
       const PlaceholderScreen(
           icon: Icons.notifications_none,
           title: 'Notifications',
-          body: 'No notifications yet.'),
+          body:
+              'Mobile sign-in is not available yet, so account notifications cannot be loaded.'),
       const PlaceholderScreen(
           icon: Icons.person_outline,
           title: 'Profile',
-          body: 'Sign in to personalize your Elevra experience.')
+          body:
+              'Mobile sign-in is not available yet. Use the Elevra website to manage your profile.')
     ];
     return Scaffold(
         body: screens[tab],
@@ -98,33 +105,34 @@ class _ShellState extends State<Shell> {
 }
 
 class Home extends StatelessWidget {
-  const Home({super.key});
+  const Home(
+      {super.key, required this.onExplore, required this.onNotifications});
+
+  final VoidCallback onExplore;
+  final VoidCallback onNotifications;
   @override
   Widget build(BuildContext c) => SafeArea(
           child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
               children: [
             Row(children: [
-              Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.menu_rounded, size: 20)),
+              IconButton(
+                  tooltip: 'Explore exams and opportunities',
+                  onPressed: onExplore,
+                  icon: const Icon(Icons.explore_outlined)),
               const Spacer(),
-              Text('Elevra',
-                  style: Theme.of(c).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900, letterSpacing: -.6)),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                Image.asset('assets/elevra-logo.png', width: 34, height: 34),
+                const SizedBox(width: 8),
+                Text('Elevra',
+                    style: Theme.of(c).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900, letterSpacing: -.6)),
+              ]),
               const Spacer(),
-              Badge(
-                  smallSize: 7,
-                  child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12)),
-                      child: const Icon(Icons.notifications_none_rounded,
-                          size: 20)))
+              IconButton(
+                  tooltip: 'Notifications',
+                  onPressed: onNotifications,
+                  icon: const Icon(Icons.notifications_none_rounded))
             ]),
             const SizedBox(height: 22),
             const Text('INDIA’S OPPORTUNITY HUB',
@@ -132,53 +140,55 @@ class Home extends StatelessWidget {
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.4,
-                    color: Color(0xFFD99400))),
+                    color: Color(0xFF668B59))),
             const SizedBox(height: 8),
             Text('Your Career &\nExam Companion',
                 style: Theme.of(c).textTheme.displaySmall?.copyWith(
                     fontWeight: FontWeight.w900,
                     height: 1.03,
                     letterSpacing: -1,
-                    color: const Color(0xFF172039))),
+                    color: const Color(0xFF17251F))),
             const SizedBox(height: 12),
             const Text(
                 'Find verified updates, plan your preparation, and never miss a deadline.',
-                style: TextStyle(color: Color(0xFF64748B), height: 1.5)),
+                style: TextStyle(color: Color(0xFF64736B), height: 1.5)),
             const SizedBox(height: 20),
-            TextField(
-                decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search),
-                    hintText: 'Search exams, jobs, courses...',
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 3),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none))),
+            OutlinedButton.icon(
+                onPressed: onExplore,
+                icon: const Icon(Icons.search),
+                label: const Text('Browse exams and opportunities'),
+                style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    alignment: Alignment.centerLeft,
+                    foregroundColor: const Color(0xFF42634E),
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFFD8E1DA)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)))),
             const SizedBox(height: 14),
             Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                    color: const Color(0xFF172039),
+                    color: const Color(0xFF17251F),
                     borderRadius: BorderRadius.circular(18)),
                 child: const Row(children: [
                   Icon(Icons.notifications_active_outlined,
-                      color: Color(0xFFF5C542)),
+                      color: Color(0xFFDCE9D1)),
                   SizedBox(width: 12),
                   Expanded(
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                        Text('9 deadlines this week',
+                        Text('Keep your next steps in view',
                             style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w800)),
                         SizedBox(height: 2),
-                        Text('Get timely reminders for what matters.',
+                        Text('Explore published resources for your next step.',
                             style: TextStyle(
-                                fontSize: 12, color: Color(0xFFCBD5E1)))
+                                fontSize: 12, color: Color(0xFFDCE5DC)))
                       ])),
-                  Icon(Icons.arrow_forward_rounded, color: Color(0xFFF5C542))
+                  Icon(Icons.arrow_forward_rounded, color: Color(0xFFDCE9D1))
                 ])),
             const SizedBox(height: 26),
             Row(children: [
@@ -188,71 +198,52 @@ class Home extends StatelessWidget {
                       .titleMedium
                       ?.copyWith(fontWeight: FontWeight.w900)),
               const Spacer(),
-              const Text('View all',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFFD99400)))
+              TextButton(onPressed: onExplore, child: const Text('View all'))
             ]),
             const SizedBox(height: 12),
-            const Wrap(spacing: 10, runSpacing: 10, children: [
-              _Category('Exams', Icons.school_outlined),
-              _Category('Jobs', Icons.work_outline),
-              _Category('Internships', Icons.rocket_launch_outlined),
-              _Category('Scholarships', Icons.workspace_premium_outlined)
+            Wrap(spacing: 10, runSpacing: 10, children: [
+              _Category('Exams', Icons.school_outlined, onTap: onExplore),
+              _Category('Jobs', Icons.work_outline, onTap: onExplore),
+              _Category('Internships', Icons.rocket_launch_outlined,
+                  onTap: onExplore),
+              _Category('Scholarships', Icons.workspace_premium_outlined,
+                  onTap: onExplore)
             ]),
             const SizedBox(height: 28),
-            Row(children: [
-              Text('Trending now',
-                  style: Theme.of(c)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w900)),
-              const Spacer(),
-              const Text('See all',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFFD99400)))
-            ]),
-            const SizedBox(height: 12),
-            const _LinkCard(
-                title: 'UPSC CSE 2025',
-                body: 'Application date and official notice.',
-                icon: Icons.account_balance_outlined),
-            const SizedBox(height: 12),
-            const _LinkCard(
-                title: 'Latest opportunities',
-                body: 'Jobs, internships, scholarships and more.',
-                icon: Icons.rocket_launch_outlined)
+            Text('Live exam and opportunity listings are available in Explore.',
+                style: Theme.of(c).textTheme.bodyMedium)
           ]));
 }
 
 class _Category extends StatelessWidget {
   final String label;
   final IconData icon;
-  const _Category(this.label, this.icon);
+  final VoidCallback onTap;
+  const _Category(this.label, this.icon, {required this.onTap});
   @override
-  Widget build(BuildContext c) => Container(
-      width: (MediaQuery.of(c).size.width - 50) / 2,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFF1F2F4))),
-      child: Row(children: [
-        Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-                color: const Color(0xFFFFF3CC),
-                borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, color: const Color(0xFFD99400), size: 19)),
-        const SizedBox(width: 9),
-        Expanded(
-            child: Text(label,
-                style:
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)))
-      ]));
+  Widget build(BuildContext c) => InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+          width: (MediaQuery.of(c).size.width - 50) / 2,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE1E8E1))),
+          child: Row(children: [
+            Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFDCE9D1),
+                    borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, color: const Color(0xFF668B59), size: 19)),
+            const SizedBox(width: 9),
+            Expanded(
+                child: Text(label,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w700)))
+          ])));
 }
 
 class Explore extends StatelessWidget {
@@ -294,17 +285,20 @@ class _ContentListState extends State<ContentList> {
   Widget build(BuildContext c) => FutureBuilder(
       future: future,
       builder: (c, s) {
-        if (s.connectionState != ConnectionState.done)
+        if (s.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
-        if (s.hasError)
+        }
+        if (s.hasError) {
           return Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text('${s.error}'),
             FilledButton(onPressed: refresh, child: const Text('Try again'))
           ]));
+        }
         final rows = s.data ?? [];
-        if (rows.isEmpty)
+        if (rows.isEmpty) {
           return const Center(child: Text('No results right now.'));
+        }
         return RefreshIndicator(
             onRefresh: refresh,
             child: ListView.builder(
@@ -360,14 +354,19 @@ class _DetailState extends State<Detail> {
   Widget build(BuildContext c) => FutureBuilder(
       future: future,
       builder: (c, s) {
-        if (s.connectionState != ConnectionState.done)
+        if (s.connectionState != ConnectionState.done) {
           return const Scaffold(
               body: Center(child: CircularProgressIndicator()));
-        if (s.hasError)
+        }
+        if (s.hasError) {
           return Scaffold(
               appBar: AppBar(), body: Center(child: Text('${s.error}')));
+        }
         final x = s.data!;
         final title = widget.isExam ? x['name'] : x['title'];
+        final String? officialUrl = (widget.isExam
+            ? x['official_website']
+            : x['application_url']) as String?;
         return Scaffold(
             appBar: AppBar(),
             body: ListView(padding: const EdgeInsets.all(20), children: [
@@ -383,24 +382,26 @@ class _DetailState extends State<Detail> {
                     avatar: Icon(Icons.verified, color: Colors.green)),
               const SizedBox(height: 20),
               Text('Overview', style: Theme.of(c).textTheme.titleLarge),
-              Text(x['description'] ??
-                  'Details will be updated from the official source.'),
+              Text(x['description'] ?? 'No overview has been provided.'),
               const SizedBox(height: 20),
               Text(widget.isExam ? 'Important dates' : 'Eligibility',
                   style: Theme.of(c).textTheme.titleLarge),
               Text(widget.isExam
-                  ? 'Application deadline: ${x['application_deadline'] ?? 'To be announced'}\nExam date: ${x['exam_date'] ?? 'To be announced'}'
+                  ? 'Application deadline: ${x['application_deadline'] ?? 'To be announced'}\nExam date: ${x['exam_date'] ?? 'To be announced'}\nEligibility: ${x['eligibility_summary'] ?? 'Not provided'}'
                   : x['eligibility'] ??
-                      'Eligibility details will be updated from the official source.'),
+                      'Eligibility details are not provided.'),
               const SizedBox(height: 24),
-              FilledButton(
-                  onPressed: () => ScaffoldMessenger.of(c).showSnackBar(
-                      const SnackBar(
-                          content: Text(
-                              'Open the official source in your browser.'))),
-                  child: Text(widget.isExam
-                      ? 'Visit official website'
-                      : 'Apply on official website'))
+              if (officialUrl != null && officialUrl.isNotEmpty)
+                FilledButton.icon(
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: officialUrl));
+                      if (c.mounted) {
+                        ScaffoldMessenger.of(c).showSnackBar(const SnackBar(
+                            content: Text('Official link copied.')));
+                      }
+                    },
+                    icon: const Icon(Icons.copy_outlined),
+                    label: const Text('Copy official link'))
             ]));
       });
 }
@@ -422,37 +423,4 @@ class PlaceholderScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(body, textAlign: TextAlign.center)
               ]))));
-}
-
-class _LinkCard extends StatelessWidget {
-  final String title, body;
-  final IconData icon;
-  const _LinkCard(
-      {required this.title, required this.body, required this.icon});
-
-  @override
-  Widget build(BuildContext context) => Card(
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFF0F1F3)),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(18),
-            leading: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF3CC),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: const Color(0xFFD99400)),
-            ),
-            title: Text(title,
-                style: const TextStyle(fontWeight: FontWeight.w800)),
-            subtitle: Padding(
-                padding: const EdgeInsets.only(top: 4), child: Text(body)),
-            trailing: const Icon(Icons.chevron_right_rounded),
-          ),
-        ),
-      );
 }

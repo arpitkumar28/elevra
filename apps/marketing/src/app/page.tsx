@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowDownRight,
@@ -40,9 +41,14 @@ export default function MarketingHome() {
     <main className="overflow-hidden">
       <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:py-7">
         <Link href="/" className="flex items-center gap-3" aria-label="Elevra home">
-          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#155b48] text-lg font-black text-[#dce9d1] shadow-sm">
-            e
-          </span>
+          <Image
+            src="/elevra-logo.png"
+            alt=""
+            width={44}
+            height={44}
+            priority
+            className="h-11 w-11 rounded-2xl object-cover"
+          />
           <span className="text-xl font-bold tracking-[-.04em]">Elevra</span>
         </Link>
         <nav className="flex items-center gap-3" aria-label="Main navigation">
@@ -255,7 +261,16 @@ export default function MarketingHome() {
 
       <footer className="border-t border-[#e1e8e1] bg-white/70 px-5 py-7 text-sm text-[#77837b] sm:px-8">
         <div className="mx-auto flex max-w-7xl flex-col justify-between gap-3 sm:flex-row sm:items-center">
-          <span className="font-bold tracking-tight text-[#28483b]">Elevra</span>
+          <span className="flex items-center gap-2 font-bold tracking-tight text-[#28483b]">
+            <Image
+              src="/elevra-logo.png"
+              alt=""
+              width={28}
+              height={28}
+              className="h-7 w-7 rounded-lg object-cover"
+            />
+            Elevra
+          </span>
           <span>Clearer information for confident next steps.</span>
         </div>
       </footer>

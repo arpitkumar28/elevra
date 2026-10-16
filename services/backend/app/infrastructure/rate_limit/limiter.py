@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
+from hashlib import sha256
 from typing import Callable
 
 from fastapi import HTTPException, Request, status
 
 from app.core.config import settings
+from app.infrastructure.cache import cache_client
 
 def _parse_limit(value: str) -> dict[str, int]:
     count, separator, period = value.partition("/")
@@ -28,6 +30,14 @@ _LIMITS = {
 }
 
 _store: dict[str, list[float]] = defaultdict(list)
+
+_INCREMENT_WITH_TTL = """
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return count
+"""
 
 
 class _Limiter:
@@ -52,7 +62,36 @@ def rate_limit(name: str):
     cfg = _LIMITS[name]
 
     async def dependency(request: Request) -> None:
-        key = f"{name}:{_client_key(request)}"
+        client_key = _client_key(request)
+        if settings.environment not in {"development", "test"}:
+            # Redis gives all application workers one atomic counter per client
+            # and window. Hash the address so rate-limit keys do not retain IPs.
+            key_digest = sha256(client_key.encode("utf-8")).hexdigest()
+            redis_key = f"elevra:rate-limit:{name}:{key_digest}"
+            try:
+                count = int(
+                    cache_client.client.eval(
+                        _INCREMENT_WITH_TTL,
+                        1,
+                        redis_key,
+                        cfg["window_seconds"],
+                    )
+                )
+            except Exception as exc:
+                # A deployment must not silently drop its authentication rate
+                # limits when the shared store is unavailable.
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="rate limiting temporarily unavailable",
+                ) from exc
+            if count > cfg["max_requests"]:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="rate limit exceeded",
+                )
+            return
+
+        key = f"{name}:{client_key}"
         now = time.monotonic()
         window_start = now - cfg["window_seconds"]
         requests = _store[key]

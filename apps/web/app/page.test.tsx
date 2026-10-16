@@ -8,4 +8,8 @@ describe("Elevra web app", () => {
     render(<Page params={{ slug: [] }} />);
     expect(screen.getByRole("heading", { name: /your career.*exam companion/i })).toBeDefined();
   });
+
+  it("delegates unsupported paths to Next.js not-found handling", () => {
+    expect(() => Page({ params: { slug: ["not-a-route"] } })).toThrow("NEXT_NOT_FOUND");
+  });
 });

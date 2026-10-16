@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
 import { ProductNav } from "./product-nav";
@@ -28,10 +29,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link
                   href="/"
                   className="flex items-center gap-2 text-lg font-extrabold tracking-tight text-[#14231f]"
+                  aria-label="Elevra home"
                 >
-                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#145b48] text-sm font-black text-[#d4edaa]">
-                    e
-                  </span>
+                  <Image
+                    src="/elevra-logo.png"
+                    alt=""
+                    width={36}
+                    height={36}
+                    priority
+                    className="h-9 w-9 rounded-xl object-cover"
+                  />
                   Elevra
                 </Link>
                 <ProductNav />
@@ -42,7 +49,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <footer className="mt-10 border-t border-slate-200 bg-white pb-20 pt-10 md:pb-10">
               <div className="mx-auto grid max-w-7xl gap-8 px-5 text-sm text-slate-500 sm:grid-cols-2 lg:grid-cols-4 lg:px-8">
                 <div>
-                  <p className="text-lg font-extrabold text-slate-900">Elevra</p>
+                  <p className="flex items-center gap-2 text-lg font-extrabold text-slate-900">
+                    <Image
+                      src="/elevra-logo.png"
+                      alt=""
+                      width={28}
+                      height={28}
+                      className="h-7 w-7 rounded-lg object-cover"
+                    />
+                    Elevra
+                  </p>
                   <p className="mt-2 leading-6">
                     Your Career &amp; Exam Companion. Clear information for confident next steps.
                   </p>
