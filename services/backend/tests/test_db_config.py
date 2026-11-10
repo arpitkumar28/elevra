@@ -44,6 +44,20 @@ def test_render_develop_branch_defaults_to_staging(monkeypatch):
     assert Settings().environment == "staging"
 
 
+@pytest.mark.parametrize(
+    ("branch", "expected"),
+    [("main", "production"), ("develop", "staging")],
+)
+def test_render_never_uses_development_mode(monkeypatch, branch, expected):
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv("RENDER_GIT_BRANCH", branch)
+    monkeypatch.setenv("ENVIRONMENT", "development")
+
+    from app.core.config import _resolve_environment
+
+    assert _resolve_environment() == expected
+
+
 def test_explicit_render_environment_is_respected(monkeypatch):
     monkeypatch.setenv("RENDER", "true")
     monkeypatch.setenv("ENVIRONMENT", "staging")
