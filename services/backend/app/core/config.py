@@ -7,6 +7,22 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _resolve_environment() -> str:
+    """Prefer explicit deployment config, but fail closed on Render.
+
+    Render always injects RENDER=true. If ENVIRONMENT is accidentally omitted
+    from a service, treat it as production rather than silently enabling
+    development-only behavior (for example, insecure refresh-cookie settings).
+    APP_ENV remains a local backwards-compatible alias outside Render.
+    """
+    configured = os.getenv("ENVIRONMENT")
+    if configured:
+        return configured.lower()
+    if os.getenv("RENDER", "").lower() == "true":
+        return "production"
+    return os.getenv("APP_ENV", "development").lower()
+
+
 def _build_database_url(
     driver: str,
     *,
@@ -41,8 +57,8 @@ def _normalize_sync_database_url(url: str) -> str:
 class Settings:
     app_name: str = os.getenv("APP_NAME", "elevra")
     # ENVIRONMENT is the deployment contract; APP_ENV remains a backwards-
-    # compatible local alias.
-    environment: str = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development")).lower()
+    # compatible local alias. Render defaults to production if unset.
+    environment: str = field(default_factory=_resolve_environment)
     supabase_db_host: str = os.getenv("SUPABASE_DB_HOST", "localhost")
     supabase_db_port: int = int(os.getenv("SUPABASE_DB_PORT", "5432"))
     supabase_db_name: str = os.getenv("SUPABASE_DB_NAME", "elevra")
