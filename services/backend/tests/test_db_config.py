@@ -88,4 +88,3 @@ def test_supabase_database_configuration(monkeypatch):
     assert settings.database_url == "postgresql+psycopg://postgres:secret-password@db.example.supabase.co:5432/postgres?sslmode=require"
     assert settings.database_url_async == "postgresql+asyncpg://postgres:secret-password@db.example.supabase.co:5432/postgres?ssl=require"
     assert settings.alembic_database_url == settings.database_url
-}
