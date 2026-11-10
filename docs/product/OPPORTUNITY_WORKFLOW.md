@@ -5,7 +5,7 @@
 - `draft`: private while an admin prepares the listing.
 - `pending_review`: submitted for review and not visible in public discovery.
 - `verified`: a reviewer has checked the official source and approved the listing.
-- `published`: visible in the public opportunity listing.
+- `published`: visible in public opportunity discovery.
 - `closed`: removed from discovery while the detail remains readable for saved links and application history.
 - `rejected`: reviewer declined the listing with a required explanation.
 - `archived`: retained for history and not publicly discoverable.
@@ -29,7 +29,8 @@ a review note of at least five characters. Review actions retain the reviewer,
 review timestamp and source-check timestamp.
 
 Only published opportunities appear in public listings. Closed details remain
-readable for existing bookmarks and application records.
+readable for existing bookmarks and application records. Internal reviewer
+identifiers and review notes are returned only by admin content endpoints.
 
 ## Student application tracker
 
@@ -49,9 +50,9 @@ scoped to the owning student.
 
 ## Public API changes
 
-- `GET /api/v1/opportunities` remains public and now supports deadline range
+- `GET /api/v1/opportunities` remains public and supports deadline range
   filters and `sort=newest|deadline_soonest`.
-- Public listing returns only `published` records.
+- Public listings return only `published` records.
 - `GET /api/v1/opportunities/{slug}` also returns `closed` records for saved
   links and application history.
 - Admin lifecycle actions are under
@@ -66,8 +67,7 @@ The forward migration `20261111_opportunity_workflow` follows
 adds opportunity review metadata, adds application follow-up fields, creates
 `application_events`, and enables RLS on that new table.
 
-The migration has not been executed against staging or production by this
-change. Run it only through the reviewed migration workflow after verifying
-the target database and a current backup. The API change also needs the Phase 2
-admin interface and Phase 3 student tracker UI before the complete visual
-workflow is ready for users.
+The migration is not executed against staging or production by this change.
+Run it only through the reviewed migration workflow after verifying the exact
+database target and a current backup. The existing admin and student UI do not
+yet expose all new actions/history; those are follow-up implementation phases.
