@@ -22,6 +22,10 @@ def _record(item):
 
 @router.post("/bookmarks", status_code=status.HTTP_201_CREATED)
 def create_bookmark(payload: BookmarkWrite, request: Request, db: Annotated[Session, Depends(get_db)], user=Depends(get_current_user)):
+    if payload.entity_type == "opportunity":
+        opportunity = db.get(Opportunity, payload.entity_id)
+        if opportunity is None or opportunity.status != OpportunityStatus.published:
+            raise HTTPException(status_code=409, detail="Only currently published opportunities can be saved")
     bookmark = Bookmark(user_id=user.id, **payload.model_dump())
     db.add(bookmark)
     try:
