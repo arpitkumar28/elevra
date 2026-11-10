@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -136,20 +136,22 @@ class BookmarkWrite(BaseModel):
 
 class ApplicationWrite(BaseModel):
     opportunity_id: str | None = Field(default=None, max_length=36)
-    title: str = Field(min_length=2, max_length=255)
+    # For an Elevra opportunity, the server copies canonical content from the
+    # published record. Manual tracker entries require a user-supplied title.
+    title: str | None = Field(default=None, min_length=2, max_length=255)
     organization: str | None = Field(default=None, max_length=255)
     external_url: str | None = Field(default=None, max_length=2048)
-    status: ApplicationStatus = "saved"
     notes: str | None = None
 
 
 class ApplicationUpdate(BaseModel):
-    opportunity_id: str | None = Field(default=None, max_length=36)
     title: str | None = Field(default=None, min_length=2, max_length=255)
     organization: str | None = Field(default=None, max_length=255)
     external_url: str | None = Field(default=None, max_length=2048)
     status: ApplicationStatus | None = None
     notes: str | None = None
+    follow_up_date: date | None = None
+    status_note: str | None = Field(default=None, max_length=2000)
 
     @field_validator("title", "status", mode="before")
     @classmethod
