@@ -697,6 +697,7 @@ export function ApplicationsPage() {
   const [items, setItems] = useState<Application[]>([]);
   const [events, setEvents] = useState<Record<string, ApplicationEvent[]>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [draftStatuses, setDraftStatuses] = useState<Record<string, string>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
@@ -709,6 +710,7 @@ export function ApplicationsPage() {
     try {
       const result = await withSession((token) => authenticatedApi.listApplications(token));
       setItems(result);
+      setDraftStatuses(Object.fromEntries(result.map((item) => [item.id, item.status])));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load your application tracker.");
     } finally {
@@ -730,7 +732,9 @@ export function ApplicationsPage() {
     withdrawn: ["applied"],
   };
 
-  async function updateStatus(item: Application, nextStatus: string) {
+  async function updateStatus(item: Application) {
+    const nextStatus = draftStatuses[item.id] || item.status;
+    if (nextStatus === item.status) return;
     setBusyId(item.id);
     setError("");
     setMessage("");
@@ -743,11 +747,13 @@ export function ApplicationsPage() {
         ),
       );
       setItems((current) => current.map((entry) => entry.id === item.id ? updated : entry));
+      setDraftStatuses((current) => ({ ...current, [item.id]: updated.status }));
       setNotes((current) => ({ ...current, [item.id]: "" }));
       const history = await withSession((token) => authenticatedApi.listApplicationEvents(item.id, token));
       setEvents((current) => ({ ...current, [item.id]: history }));
       setMessage("Application status updated.");
     } catch (cause) {
+      setDraftStatuses((current) => ({ ...current, [item.id]: item.status }));
       setError(cause instanceof Error ? cause.message : "Unable to update application status.");
     } finally {
       setBusyId("");
@@ -806,13 +812,14 @@ export function ApplicationsPage() {
         <ul className="mt-8 space-y-4">
           {items.map((item) => {
             const options = Array.from(new Set([item.status, ...(nextStatuses[item.status] || [])]));
+            const selectedStatus = draftStatuses[item.id] || item.status;
             return (
               <li key={item.id} className="rounded-2xl border border-[#e3e9e4] bg-white p-5 sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-semibold">{item.title}</h2>
                     <p className="mt-1 text-sm text-[#63736c]">{item.organization || "Organization not provided"}</p>
-                    <p className="mt-1 text-xs capitalize text-[#718078]">{item.status.replaceAll("_", " ")}</p>
+                    <p className="mt-1 text-xs capitalize text-[#718078]">Current status: {item.status.replaceAll("_", " ")}</p>
                   </div>
                   {item.external_url && (
                     <a href={item.external_url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-[#145b48] underline underline-offset-4">
@@ -822,11 +829,11 @@ export function ApplicationsPage() {
                 </div>
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
                   <label className="text-sm font-semibold">
-                    Application status
+                    Update application status
                     <select
-                      value={item.status}
+                      value={selectedStatus}
                       disabled={busyId === item.id}
-                      onChange={(event) => void updateStatus(item, event.target.value)}
+                      onChange={(event) => setDraftStatuses((current) => ({ ...current, [item.id]: event.target.value }))}
                       className={inputClass}
                     >
                       {options.map((value) => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}
@@ -852,6 +859,19 @@ export function ApplicationsPage() {
                     className={inputClass}
                   />
                 </label>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={busyId === item.id || selectedStatus === item.status}
+                    onClick={() => void updateStatus(item)}
+                    className="rounded-xl bg-[#145b48] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {busyId === item.id ? "Saving…" : "Save status"}
+                  </button>
+                  {item.applied_at && (
+                    <span className="text-xs text-[#718078]">Marked applied {new Date(item.applied_at).toLocaleDateString()}</span>
+                  )}
+                </div>
                 {item.notes && <p className="mt-3 whitespace-pre-line text-sm text-[#63736c]">Private notes: {item.notes}</p>}
                 <button
                   type="button"
