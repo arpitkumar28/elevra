@@ -73,6 +73,8 @@ class OpportunityUpdate(BaseModel):
 
 
 class OpportunityResponse(OpportunityBase):
+    """Student-facing opportunity response; excludes internal review details."""
+
     model_config = ConfigDict(from_attributes=True)
     id: str
     deadline: Optional[date] = None
@@ -81,13 +83,18 @@ class OpportunityResponse(OpportunityBase):
     verified: bool
     verified_at: Optional[datetime] = None
     source_checked_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class OpportunityAdminResponse(OpportunityResponse):
+    """Administrator response with private editorial/review metadata."""
+
     submitted_at: Optional[datetime] = None
     reviewed_at: Optional[datetime] = None
     reviewed_by_id: Optional[str] = None
     review_note: Optional[str] = None
-    closed_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
 
 
 class OpportunityPage(BaseModel):
