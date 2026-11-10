@@ -24,8 +24,8 @@ from app.models.platform import (
 )
 from app.schemas.exam import ExamCategory, ExamCreate, ExamResponse, ExamUpdate
 from app.schemas.opportunity import (
+    OpportunityAdminResponse,
     OpportunityCreate,
-    OpportunityResponse,
     OpportunityType,
     OpportunityUpdate,
 )
@@ -65,7 +65,7 @@ MODELS = {
 }
 READ_SCHEMAS = {
     "exams": ExamResponse,
-    "opportunities": OpportunityResponse,
+    "opportunities": OpportunityAdminResponse,
     "courses": CourseRead,
     "current-affairs": CurrentAffairRead,
     "tests": TestAdminRead,
