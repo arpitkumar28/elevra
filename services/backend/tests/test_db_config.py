@@ -20,6 +20,27 @@ def test_sync_postgres_urls_select_psycopg3(url):
     assert make_url(normalized).drivername == "postgresql+psycopg"
 
 
+def test_render_defaults_to_production_when_environment_is_missing(monkeypatch):
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.setenv("APP_ENV", "development")
+
+    from app.core.config import Settings, _resolve_environment
+
+    assert _resolve_environment() == "production"
+    assert Settings().environment == "production"
+
+
+def test_explicit_render_environment_is_respected(monkeypatch):
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv("ENVIRONMENT", "staging")
+    monkeypatch.setenv("APP_ENV", "development")
+
+    from app.core.config import Settings
+
+    assert Settings().environment == "staging"
+
+
 def test_render_database_and_alembic_urls_load_psycopg3(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:password@db.example:5432/elevra")
     monkeypatch.setenv("ALEMBIC_DATABASE_URL", "postgres://user:password@db.example:5432/elevra")
@@ -54,3 +75,4 @@ def test_supabase_database_configuration(monkeypatch):
     assert settings.database_url == "postgresql+psycopg://postgres:secret-password@db.example.supabase.co:5432/postgres?sslmode=require"
     assert settings.database_url_async == "postgresql+asyncpg://postgres:secret-password@db.example.supabase.co:5432/postgres?ssl=require"
     assert settings.alembic_database_url == settings.database_url
+}
