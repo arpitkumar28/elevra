@@ -12,6 +12,7 @@ import {
 } from "@elevra/api-client";
 import { AuthForm, ProtectedContent } from "../auth-components";
 import {
+  ApplicationsPage,
   DashboardPage,
   NotificationsPage,
   OpportunityAccountActions,
@@ -340,8 +341,10 @@ function Detail({
     : [
         ["Organization", o.organization],
         ["Location", o.remote ? "Remote" : o.location],
+        ["Applications open", date(o.application_start)],
         ["Deadline", date(o.deadline)],
         ["Type", titleize(o.type)],
+        ["Source checked", date(o.source_checked_at)],
       ];
   const source = isExam ? e.official_website : o.application_url;
   return (
@@ -357,11 +360,12 @@ function Detail({
           <div className="flex flex-wrap gap-2">
             <Pill>{titleize(isExam ? e.category : o.type)}</Pill>
             {item.verified && <Pill green>✓ Verified source</Pill>}
+            {!isExam && o.status === "closed" && <Pill>Applications closed</Pill>}
           </div>
           <h1 className="mt-5 text-4xl font-bold">{heading}</h1>
           <p className="mt-2 text-slate-300">{isExam ? e.conducting_body : o.organization}</p>
           <div className="mt-6 flex flex-wrap gap-3">
-            {source && (
+            {source && (isExam || o.status === "published") && (
               <a
                 href={source}
                 target="_blank"
@@ -370,6 +374,11 @@ function Detail({
               >
                 {isExam ? "Visit official website" : "Apply on official website"} ↗
               </a>
+            )}
+            {!isExam && o.status === "closed" && (
+              <span className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500">
+                Applications are closed
+              </span>
             )}
             <OpportunityAccountActions item={item} isExam={isExam} />
             <ShareControl title={heading} />
@@ -903,6 +912,12 @@ export default function RoutePage({ params }: { params: { slug?: string[] } }) {
     return (
       <ProtectedContent>
         <NotificationsPage />
+      </ProtectedContent>
+    );
+  if (parts[0] === "applications")
+    return (
+      <ProtectedContent>
+        <ApplicationsPage />
       </ProtectedContent>
     );
   if (parts[0] === "career")
