@@ -1,5 +1,20 @@
 # Phase 2 Migration Verification
 
+> **Historical snapshot — superseded for the fresh-install path.** This report
+> records the earlier CI failure at the `deadline_at` index before PR #7
+> reconciled the migration graph. It remains useful as a record of why the old
+> graph was unsafe, but it is not the current CI result. The repaired migration
+> graph passed the PostgreSQL 16 + pgvector fresh-upgrade/ORM parity test in
+> [CI run #15](https://github.com/arpitkumar28/elevra/actions/runs/42863342677).
+> The RLS revision and its integration assertions passed in
+> [CI run #27](https://github.com/arpitkumar28/elevra/actions/runs/42868755051).
+> These runs verify a fresh disposable database only. The linked Supabase
+> project was read-only inspected on 2026-11-10 and had zero public application
+> tables, no Alembic ledger, zero Auth users, and no installed `vector`
+> extension; the Render production `DATABASE_URL` target is not yet verified.
+> No live Supabase migration or data write has been performed. Production
+> migration remains gated on verifying that target and a current backup.
+
 **Repository:** `arpitkumar28/elevra`  
 **Verification date:** 2026-11-10  
 **Decision:** **NO-GO for production database migration**

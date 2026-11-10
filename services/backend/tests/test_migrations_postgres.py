@@ -188,6 +188,20 @@ def test_fresh_postgres_pgvector_upgrade_matches_active_orm() -> None:
                 .scalars()
                 .all()
             )
-        assert revisions == ["20261110_align_active_orm"]
+            rls_status = connection.execute(
+                text(
+                    """
+                    SELECT c.relname, c.relrowsecurity
+                    FROM pg_class AS c
+                    JOIN pg_namespace AS n ON n.oid = c.relnamespace
+                    WHERE n.nspname = 'public'
+                      AND c.relkind IN ('r', 'p')
+                      AND c.relname <> 'alembic_version'
+                    """
+                )
+            ).all()
+        assert revisions == ["20261110_enable_public_rls"]
+        assert {name for name, enabled in rls_status if enabled} >= expected_tables
+        assert all(enabled for _, enabled in rls_status)
     finally:
         engine.dispose()
