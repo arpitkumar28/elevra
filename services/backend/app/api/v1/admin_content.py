@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from math import ceil
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from sqlalchemy import or_
@@ -182,7 +182,7 @@ def list_content_queue(
     rows = []
     counts = 0
     for kind, model in MODELS.items():
-        if queue_status == "pending_review" and kind not in {"courses", "current-affairs"}:
+        if queue_status == "pending_review" and kind not in {"courses", "current-affairs", "opportunities"}:
             continue
         query = db.query(model).filter(model.status == queue_status)
         counts += query.count()
@@ -303,6 +303,11 @@ def update_admin_content(
     if kind in {"exams", "opportunities"} and {"status", "verified"}.intersection(values):
         raise HTTPException(status_code=422, detail="Use the content action endpoint to change publication or verification state")
     item = _find(kind, content_id, db)
+    if kind == "opportunities" and item.status not in (OpportunityStatus.draft, OpportunityStatus.rejected):
+        raise HTTPException(
+            status_code=409,
+            detail="Only draft or rejected opportunities can be edited. Use the review workflow for other statuses.",
+        )
     for field in ("official_website", "source_url", "application_url"):
         if values.get(field) is not None:
             values[field] = str(values[field])
@@ -326,10 +331,97 @@ def administer_content_action(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     admin=Depends(require_admin),
+    payload: dict | None = Body(default=None),
 ):
     kind = _kind(kind)
     item = _find(kind, content_id, db)
     current = item.status.value if hasattr(item.status, "value") else item.status
+
+    if kind == "opportunities":
+        now = datetime.now(UTC)
+        review_note = str((payload or {}).get("review_note") or "").strip() or None
+        transitions = {
+            ("draft", "submit"): "pending_review",
+            ("rejected", "submit"): "pending_review",
+            ("pending_review", "approve"): "verified",
+            ("pending_review", "request-changes"): "draft",
+            ("pending_review", "reject"): "rejected",
+            ("verified", "publish"): "published",
+            ("published", "unpublish"): "verified",
+            ("published", "close"): "closed",
+            ("draft", "archive"): "archived",
+            ("rejected", "archive"): "archived",
+            ("verified", "archive"): "archived",
+            ("published", "archive"): "archived",
+            ("closed", "archive"): "archived",
+        }
+        target = transitions.get((current, action))
+        if target is None:
+            raise HTTPException(status_code=409, detail=f"Cannot {action} opportunity in {current} status")
+
+        if action in {"request-changes", "reject"} and (not review_note or len(review_note) < 5):
+            raise HTTPException(status_code=422, detail="A review note of at least 5 characters is required")
+
+        if action == "submit":
+            missing = [
+                field for field, value in (
+                    ("organization", item.organization),
+                    ("description", item.description or item.summary),
+                    ("application_url", item.application_url),
+                    ("source_name", item.source_name),
+                    ("source_url", item.source_url),
+                ) if not value
+            ]
+            if missing:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"message": "Complete the required opportunity details before submitting", "missing": missing},
+                )
+            item.submitted_at = now
+            item.reviewed_at = None
+            item.reviewed_by_id = None
+            item.review_note = None
+            item.verified = False
+            item.verified_at = None
+        elif action == "approve":
+            item.reviewed_at = now
+            item.reviewed_by_id = admin.id
+            item.source_checked_at = now
+            item.review_note = None
+            item.verified = True
+            item.verified_at = now
+        elif action in {"request-changes", "reject"}:
+            item.reviewed_at = now
+            item.reviewed_by_id = admin.id
+            item.review_note = review_note
+            item.verified = False
+            item.verified_at = None
+        elif action == "publish":
+            item.published_at = now
+        elif action == "unpublish":
+            item.published_at = None
+        elif action == "close":
+            item.closed_at = now
+        elif action == "archive" and current == "published":
+            item.closed_at = item.closed_at or now
+
+        item.status = OpportunityStatus(target)
+        audit_metadata = {"from_status": current, "to_status": target}
+        if review_note:
+            audit_metadata["review_note"] = review_note
+        record_audit(
+            db,
+            action=action.upper().replace("-", "_"),
+            entity="opportunity",
+            entity_id=item.id,
+            actor_id=admin.id,
+            request=request,
+            metadata=audit_metadata,
+        )
+        db.commit()
+        db.refresh(item)
+        return _row(kind, item, db)
+
     transitions: dict[str, dict[str, str]] = {
         "exams": {"draft:publish": "published", "published:unpublish": "draft", "draft:archive": "archived", "published:archive": "archived", "archived:publish": "published", "draft:verify": "verified", "published:verify": "verified", "archived:verify": "verified", "draft:unverify": "unverified", "published:unverify": "unverified", "archived:unverify": "unverified"},
         "opportunities": {"draft:publish": "published", "closed:publish": "published", "archived:publish": "published", "published:unpublish": "draft", "draft:archive": "archived", "published:archive": "archived", "closed:archive": "archived", "draft:verify": "verified", "published:verify": "verified", "closed:verify": "verified", "archived:verify": "verified", "draft:unverify": "unverified", "published:unverify": "unverified", "closed:unverify": "unverified", "archived:unverify": "unverified", "published:close": "closed"},
