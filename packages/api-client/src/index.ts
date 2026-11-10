@@ -84,7 +84,7 @@ export type Application = {
   notes?: string;
   external_url?: string;
   applied_at?: string;
-  follow_up_date?: string;
+  follow_up_date?: string | null;
 };
 export type ApplicationEvent = {
   id: string;
