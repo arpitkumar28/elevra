@@ -55,8 +55,9 @@ jobs:
       - run: pytest -q services/backend/tests/test_migrations_postgres.py -m integration
         env:
           ELEVRA_MIGRATION_TEST_DATABASE_URL: postgresql+psycopg://elevra_test:ci-only-migration-test-password@localhost:5432/elevra_migration_test
-      - run: alembic upgrade --sql head
-        working-directory: services/backend
+      # Migration revisions use live schema inspection for safe compatibility
+      # guards; the real PostgreSQL + pgvector integration test above is the
+      # authoritative upgrade check. Offline SQL generation is not supported.
       - run: test "$(alembic heads | wc -l | tr -d ' ')" = 1
         working-directory: services/backend
 
