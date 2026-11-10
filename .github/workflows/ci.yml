@@ -60,6 +60,10 @@ jobs:
       # authoritative upgrade check. Offline SQL generation is not supported.
       - run: test "$(alembic heads | wc -l | tr -d ' ')" = 1
         working-directory: services/backend
+      - name: Build the production backend image
+        run: docker build -f services/backend/Dockerfile -t elevra-backend-ci services/backend
+      - name: Verify the image contains Alembic migration history
+        run: docker run --rm elevra-backend-ci alembic heads
 
   mobile:
     runs-on: ubuntu-latest
