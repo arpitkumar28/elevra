@@ -79,7 +79,7 @@ def test_bootstrap_rejects_weak_password_without_creating_user(db):
             password="weak",
         )
     except AdminBootstrapError as exc:
-        assert "password" in str(exc).lower()
+        assert "at least 12 characters" in str(exc).lower()
     else:
         raise AssertionError("bootstrap must reject weak passwords")
 
