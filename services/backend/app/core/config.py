@@ -8,19 +8,19 @@ load_dotenv()
 
 
 def _resolve_environment() -> str:
-    """Prefer explicit deployment config, but fail closed on Render.
+    """Resolve deployment mode and prevent development/test mode on Render.
 
-    Render always injects RENDER=true. If ENVIRONMENT is accidentally omitted
-    from a service, treat it as production rather than silently enabling
-    development-only behavior (for example, insecure refresh-cookie settings).
-    APP_ENV remains a local backwards-compatible alias outside Render.
+    Render injects RENDER=true and RENDER_GIT_BRANCH. An explicit staging or
+    production value remains authoritative. Missing, development, or test
+    values are mapped by branch so deployed services cannot enable dev-only
+    authentication behavior such as insecure refresh cookies.
     """
-    configured = os.getenv("ENVIRONMENT")
-    if configured:
-        return configured.lower()
+    configured = os.getenv("ENVIRONMENT", "").strip().lower()
     if os.getenv("RENDER", "").lower() == "true":
+        if configured not in {"", "development", "test"}:
+            return configured
         return "staging" if os.getenv("RENDER_GIT_BRANCH") == "develop" else "production"
-    return os.getenv("APP_ENV", "development").lower()
+    return configured or os.getenv("APP_ENV", "development").lower()
 
 
 def _build_database_url(
