@@ -65,24 +65,6 @@ def upgrade() -> None:
       created_at timestamptz NOT NULL,
       updated_at timestamptz NOT NULL
     );
-    CREATE TABLE IF NOT EXISTS opportunities (
-      id text PRIMARY KEY,
-      organization_id text REFERENCES organizations(id),
-      type varchar(40) NOT NULL,
-      status varchar(40) NOT NULL DEFAULT 'pending_review',
-      title varchar(320) NOT NULL,
-      provider_name varchar(240) NOT NULL,
-      description text NOT NULL,
-      country varchar(80),
-      grade_levels varchar[] NOT NULL DEFAULT '{}',
-      tags varchar[] NOT NULL DEFAULT '{}',
-      source_url varchar(2048),
-      deadline_at varchar(40),
-      popularity_score numeric(8,4) NOT NULL DEFAULT 0,
-      metadata_json jsonb NOT NULL DEFAULT '{}'::jsonb,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
     CREATE TABLE IF NOT EXISTS mock_tests (
       id text PRIMARY KEY,
       user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -127,29 +109,6 @@ def upgrade() -> None:
       created_at timestamptz NOT NULL,
       updated_at timestamptz NOT NULL
     );
-    DO $migration$
-    BEGIN
-      IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = current_schema()
-          AND table_name = 'opportunities'
-          AND column_name = 'deadline'
-      ) THEN
-        CREATE INDEX IF NOT EXISTS ix_opportunities_type_status_deadline
-          ON opportunities(type, status, deadline);
-      ELSIF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = current_schema()
-          AND table_name = 'opportunities'
-          AND column_name = 'deadline_at'
-      ) THEN
-        CREATE INDEX IF NOT EXISTS ix_opportunities_type_status_deadline
-          ON opportunities(type, status, deadline_at);
-      ELSE
-        RAISE EXCEPTION 'opportunities table has neither deadline nor deadline_at';
-      END IF;
-    END
-    $migration$;
     CREATE INDEX IF NOT EXISTS ix_analytics_events_name ON analytics_events(event_name);
     """)
 
