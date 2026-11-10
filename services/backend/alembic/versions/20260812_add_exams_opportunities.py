@@ -9,9 +9,16 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # The existing authentication model uses this role flag. Keep it in this
-    # additive migration so already-created user tables are not replaced.
-    op.add_column("users", sa.Column("is_admin", sa.Boolean(), nullable=False, server_default=sa.text("false")))
+    # The legacy root may already include this field. Add it only when absent.
+    user_columns = {
+        column["name"]
+        for column in sa.inspect(op.get_bind()).get_columns("users", schema="public")
+    }
+    if "is_admin" not in user_columns:
+        op.add_column(
+            "users",
+            sa.Column("is_admin", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        )
     # enums
     exam_category = postgresql.ENUM(
         "government",
