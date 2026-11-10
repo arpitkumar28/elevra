@@ -5,6 +5,7 @@ const accountRoutes = new Set([
   "profile",
   "notifications",
   "saved",
+  "applications",
 ]);
 
 const detailRoutes = new Set([
