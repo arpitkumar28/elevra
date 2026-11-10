@@ -36,8 +36,19 @@ The connected project was inspected read-only on 2026-11-10. At that time:
 
 The Alembic chain includes a revision that runs
 `CREATE EXTENSION IF NOT EXISTS vector`, followed by the reconciled schema
-revisions. The PostgreSQL/pgvector integration test in CI is the disposable
-database verification for this chain.
+revisions. The latest public-schema security revision enables RLS on every
+application table in `public` (leaving the Alembic ledger alone). Because
+FastAPI is the intended database access layer, no anon/authenticated table
+policies are added; direct Data API access remains deny-by-default. The backend
+connects with its server-side database role, which must be the intended
+privileged service role.
+
+The PostgreSQL/pgvector integration test in CI creates a disposable empty
+database, runs the full Alembic chain, compares tables/columns/types/indexes/
+foreign keys with the active ORM, checks `vector`, and verifies RLS on all
+application tables. This validates a fresh install only; it does not prove
+compatibility with unknown historical schemas or identify the Render service's
+actual database target.
 
 Before the first production deployment, confirm a current Supabase backup,
 confirm the Render `DATABASE_URL` secret points to the intended Elevra

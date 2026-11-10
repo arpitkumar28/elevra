@@ -68,30 +68,36 @@ before relying on it.
 
 ## Database and migration release gate
 
-The active ORM contains 21 tables. The repository documents two Alembic roots,
-overlapping table operations, and missing token table creation in the current
-history. Although `alembic heads` reports one head, this does not prove a fresh
-upgrade works. **Do not release a database migration until the PostgreSQL 16 +
-pgvector integration test succeeds and all actual starting states have been
-inventoried.**
+The current Alembic graph has a single head and has passed the fresh-install
+PostgreSQL 16 + pgvector integration test, including active ORM parity and
+public-table RLS checks. Evidence is in [CI run #15](https://github.com/arpitkumar28/elevra/actions/runs/42863342677)
+and [CI run #27](https://github.com/arpitkumar28/elevra/actions/runs/42868755051).
+This does not prove the starting state of an existing production database.
 
 Before staging:
 
 1. Verify which database the live Render service targets without copying or
-   exposing its connection string.
-2. Inventory `public.alembic_version`, tables, columns, enums, indexes,
-   constraints, and `vector` read-only.
-3. Reproduce/repair on an isolated disposable PostgreSQL + pgvector instance;
-   test fresh initialization and each confirmed existing state.
-4. Take and verify a staging backup/PITR point; use the approved manual
-   migration workflow only after code review and staging approval.
-5. Verify expected revision state, schema, `/api/v1/health/ready`, CORS, auth,
-   refresh rotation, student ownership, and admin role enforcement.
+   exposing its connection string. The linked Supabase project inventory is
+   not proof of Render's target until the URL is checked.
+2. Confirm a current backup/PITR point and a recovery procedure.
+3. Dispatch the environment-gated migration workflow against staging only
+   after checking the exact target and approval.
+4. Verify the final Alembic revision, complete ORM schema, vector extension,
+   RLS on every application table, `/api/v1/health/ready`, CORS, student
+   registration/login, refresh rotation, ownership isolation and admin roles.
+5. Review staging evidence and authorize production as a separate release.
 
-Do not use destructive Alembic downgrades as rollback. Use a reviewed forward
-fix or provider backup/PITR only through an explicit recovery decision. No
-migration, bootstrap account, production write, or deploy is performed by this
-document.
+The production Render service is shown as a Free instance. Render's
+`preDeployCommand` is a paid-service feature, so do not assume the manifest's
+pre-deploy Alembic command ran during the successful app deployment. Use the
+reviewed migration workflow rather than running migrations in every Uvicorn
+worker or at application startup.
+
+The linked Supabase project was inspected read-only on 2026-11-10: zero public
+application tables, no Alembic history, zero Auth users, and vector not
+installed. No live migration, bootstrap admin or data write has been executed.
+Do not use destructive Alembic downgrades as routine rollback; use a reviewed
+forward fix or provider backup/PITR only under an explicit recovery decision.
 
 ## Operational checks
 
