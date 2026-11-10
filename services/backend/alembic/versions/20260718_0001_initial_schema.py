@@ -18,18 +18,17 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.execute("""
     CREATE TABLE IF NOT EXISTS users (
-      id text PRIMARY KEY,
-      email varchar(320) NOT NULL UNIQUE,
-      full_name varchar(240) NOT NULL,
-      password_hash varchar(512),
-      avatar_url varchar(2048),
-      graduation_year integer,
-      locale varchar(16) NOT NULL DEFAULT 'en',
-      timezone varchar(80) NOT NULL DEFAULT 'UTC',
+      id varchar(36) PRIMARY KEY,
+      name varchar(255) NOT NULL,
+      email varchar(255) NOT NULL UNIQUE,
+      password_hash varchar(255) NOT NULL,
+      is_admin boolean NOT NULL DEFAULT false,
       is_active boolean NOT NULL DEFAULT true,
-      is_verified boolean NOT NULL DEFAULT false,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
+      role varchar(32) NOT NULL DEFAULT 'student',
+      email_verified boolean NOT NULL DEFAULT false,
+      locked_until timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE TABLE IF NOT EXISTS roles (
       id text PRIMARY KEY,
