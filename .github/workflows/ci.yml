@@ -47,7 +47,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r services/backend/requirements.txt
+      - run: pip install -r services/backend/requirements-dev.txt
       - run: pip check
       - run: pytest -q services/backend/tests -m "not integration"
         env:
@@ -60,6 +60,10 @@ jobs:
       # authoritative upgrade check. Offline SQL generation is not supported.
       - run: test "$(alembic heads | wc -l | tr -d ' ')" = 1
         working-directory: services/backend
+      - name: Build the production backend image
+        run: docker build -f services/backend/Dockerfile -t elevra-backend-ci services/backend
+      - name: Verify the image contains Alembic migration history
+        run: docker run --rm elevra-backend-ci alembic heads
 
   mobile:
     runs-on: ubuntu-latest
@@ -92,4 +96,4 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install pip-audit
-      - run: pip-audit -r services/backend/requirements.txt
+      - run: pip-audit -r services/backend/requirements-dev.txt
