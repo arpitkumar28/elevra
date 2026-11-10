@@ -20,6 +20,54 @@ def test_sync_postgres_urls_select_psycopg3(url):
     assert make_url(normalized).drivername == "postgresql+psycopg"
 
 
+def test_render_main_defaults_to_production_when_environment_is_missing(monkeypatch):
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.delenv("RENDER_GIT_BRANCH", raising=False)
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.setenv("APP_ENV", "development")
+
+    from app.core.config import Settings, _resolve_environment
+
+    assert _resolve_environment() == "production"
+    assert Settings().environment == "production"
+
+
+def test_render_develop_branch_defaults_to_staging(monkeypatch):
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv("RENDER_GIT_BRANCH", "develop")
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.setenv("APP_ENV", "production")
+
+    from app.core.config import Settings, _resolve_environment
+
+    assert _resolve_environment() == "staging"
+    assert Settings().environment == "staging"
+
+
+@pytest.mark.parametrize(
+    ("branch", "expected"),
+    [("main", "production"), ("develop", "staging")],
+)
+def test_render_never_uses_development_mode(monkeypatch, branch, expected):
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv("RENDER_GIT_BRANCH", branch)
+    monkeypatch.setenv("ENVIRONMENT", "development")
+
+    from app.core.config import _resolve_environment
+
+    assert _resolve_environment() == expected
+
+
+def test_explicit_render_environment_is_respected(monkeypatch):
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv("ENVIRONMENT", "staging")
+    monkeypatch.setenv("APP_ENV", "development")
+
+    from app.core.config import Settings
+
+    assert Settings().environment == "staging"
+
+
 def test_render_database_and_alembic_urls_load_psycopg3(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://user:password@db.example:5432/elevra")
     monkeypatch.setenv("ALEMBIC_DATABASE_URL", "postgres://user:password@db.example:5432/elevra")

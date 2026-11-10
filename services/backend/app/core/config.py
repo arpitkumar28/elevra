@@ -7,6 +7,22 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _resolve_environment() -> str:
+    """Resolve deployment mode and prevent development/test mode on Render.
+
+    Render injects RENDER=true and RENDER_GIT_BRANCH. An explicit staging or
+    production value remains authoritative. Missing, development, or test
+    values are mapped by branch so deployed services cannot enable dev-only
+    authentication behavior such as insecure refresh cookies.
+    """
+    configured = os.getenv("ENVIRONMENT", "").strip().lower()
+    if os.getenv("RENDER", "").lower() == "true":
+        if configured not in {"", "development", "test"}:
+            return configured
+        return "staging" if os.getenv("RENDER_GIT_BRANCH") == "develop" else "production"
+    return configured or os.getenv("APP_ENV", "development").lower()
+
+
 def _build_database_url(
     driver: str,
     *,
@@ -41,8 +57,8 @@ def _normalize_sync_database_url(url: str) -> str:
 class Settings:
     app_name: str = os.getenv("APP_NAME", "elevra")
     # ENVIRONMENT is the deployment contract; APP_ENV remains a backwards-
-    # compatible local alias.
-    environment: str = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development")).lower()
+    # compatible local alias. Render defaults to production if unset.
+    environment: str = field(default_factory=_resolve_environment)
     supabase_db_host: str = os.getenv("SUPABASE_DB_HOST", "localhost")
     supabase_db_port: int = int(os.getenv("SUPABASE_DB_PORT", "5432"))
     supabase_db_name: str = os.getenv("SUPABASE_DB_NAME", "elevra")
