@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 ContentStatus = Literal["draft", "pending_review", "verified", "published", "rejected", "expired"]
 TestType = Literal["mock", "practice", "topic", "previous_year"]
-BookmarkType = Literal["exam", "job", "internship", "scholarship", "course", "competition", "current_affair"]
+BookmarkType = Literal["exam", "opportunity", "job", "internship", "scholarship", "course", "competition", "current_affair"]
 ApplicationStatus = Literal["saved", "applied", "in_progress", "interview", "selected", "rejected", "withdrawn"]
 
 
