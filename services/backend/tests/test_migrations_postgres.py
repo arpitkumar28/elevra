@@ -188,6 +188,6 @@ def test_fresh_postgres_pgvector_upgrade_matches_active_orm() -> None:
                 .scalars()
                 .all()
             )
-        assert revisions == ["20260821_core_platform_domains"]
+        assert revisions == ["20261110_align_active_orm"]
     finally:
         engine.dispose()
