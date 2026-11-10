@@ -1,0 +1,43 @@
+name: Regenerate security-remediation lockfile
+
+on:
+  push:
+    branches:
+      - codex/security-remediation-next16
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Regenerate the pnpm lockfile without running lifecycle scripts
+        run: pnpm install --lockfile-only --no-frozen-lockfile --ignore-scripts
+      - name: Ensure manifests were not modified
+        run: git diff --exit-code -- package.json apps/*/package.json packages/shared/package.json
+      - name: Commit the generated lockfile
+        shell: bash
+        run: |
+          if git diff --quiet -- pnpm-lock.yaml; then
+            echo "pnpm-lock.yaml is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pnpm-lock.yaml
+          git commit -m "chore(deps): regenerate pnpm lockfile"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+      - name: Verify frozen installation and dependency audit
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm audit --prod --audit-level high
