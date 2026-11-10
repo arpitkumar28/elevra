@@ -19,7 +19,7 @@ def _resolve_environment() -> str:
     if configured:
         return configured.lower()
     if os.getenv("RENDER", "").lower() == "true":
-        return "production"
+        return "staging" if os.getenv("RENDER_GIT_BRANCH") == "develop" else "production"
     return os.getenv("APP_ENV", "development").lower()
 
 
