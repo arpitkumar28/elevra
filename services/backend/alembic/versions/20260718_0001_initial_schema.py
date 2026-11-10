@@ -18,18 +18,17 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.execute("""
     CREATE TABLE IF NOT EXISTS users (
-      id text PRIMARY KEY,
-      email varchar(320) NOT NULL UNIQUE,
-      full_name varchar(240) NOT NULL,
-      password_hash varchar(512),
-      avatar_url varchar(2048),
-      graduation_year integer,
-      locale varchar(16) NOT NULL DEFAULT 'en',
-      timezone varchar(80) NOT NULL DEFAULT 'UTC',
+      id varchar(36) PRIMARY KEY,
+      name varchar(255) NOT NULL,
+      email varchar(255) NOT NULL UNIQUE,
+      password_hash varchar(255) NOT NULL,
+      is_admin boolean NOT NULL DEFAULT false,
       is_active boolean NOT NULL DEFAULT true,
-      is_verified boolean NOT NULL DEFAULT false,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
+      role varchar(32) NOT NULL DEFAULT 'student',
+      email_verified boolean NOT NULL DEFAULT false,
+      locked_until timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE TABLE IF NOT EXISTS roles (
       id text PRIMARY KEY,
@@ -65,77 +64,12 @@ def upgrade() -> None:
       created_at timestamptz NOT NULL,
       updated_at timestamptz NOT NULL
     );
-    CREATE TABLE IF NOT EXISTS opportunities (
-      id text PRIMARY KEY,
-      organization_id text REFERENCES organizations(id),
-      type varchar(40) NOT NULL,
-      status varchar(40) NOT NULL DEFAULT 'pending_review',
-      title varchar(320) NOT NULL,
-      provider_name varchar(240) NOT NULL,
-      description text NOT NULL,
-      country varchar(80),
-      grade_levels varchar[] NOT NULL DEFAULT '{}',
-      tags varchar[] NOT NULL DEFAULT '{}',
-      source_url varchar(2048),
-      deadline_at varchar(40),
-      popularity_score numeric(8,4) NOT NULL DEFAULT 0,
-      metadata_json jsonb NOT NULL DEFAULT '{}'::jsonb,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS courses (
-      id text PRIMARY KEY,
-      title varchar(320) NOT NULL,
-      slug varchar(180) NOT NULL UNIQUE,
-      description text NOT NULL,
-      subject varchar(120) NOT NULL,
-      difficulty varchar(40) NOT NULL,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS lessons (
-      id text PRIMARY KEY,
-      course_id text NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-      title varchar(320) NOT NULL,
-      content_url varchar(2048),
-      position integer NOT NULL,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS notes (
-      id text PRIMARY KEY,
-      user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      lesson_id text REFERENCES lessons(id) ON DELETE SET NULL,
-      title varchar(240) NOT NULL,
-      body text NOT NULL,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
     CREATE TABLE IF NOT EXISTS mock_tests (
       id text PRIMARY KEY,
       user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       exam_key varchar(120) NOT NULL,
       score_percent numeric(5,2) NOT NULL,
       analytics_json jsonb NOT NULL DEFAULT '{}'::jsonb,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS bookmarks (
-      id text PRIMARY KEY,
-      user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      opportunity_id text NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL,
-      CONSTRAINT uq_bookmark_user_opportunity UNIQUE (user_id, opportunity_id)
-    );
-    CREATE TABLE IF NOT EXISTS notifications (
-      id text PRIMARY KEY,
-      user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      channel varchar(40) NOT NULL,
-      title varchar(240) NOT NULL,
-      body text NOT NULL,
-      is_read boolean NOT NULL DEFAULT false,
-      payload_json jsonb NOT NULL DEFAULT '{}'::jsonb,
       created_at timestamptz NOT NULL,
       updated_at timestamptz NOT NULL
     );
@@ -157,25 +91,6 @@ def upgrade() -> None:
       created_at timestamptz NOT NULL,
       updated_at timestamptz NOT NULL
     );
-    CREATE TABLE IF NOT EXISTS applications (
-      id text PRIMARY KEY,
-      user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      opportunity_id text NOT NULL REFERENCES opportunities(id),
-      status varchar(80) NOT NULL DEFAULT 'draft',
-      checklist_json jsonb NOT NULL DEFAULT '[]'::jsonb,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS audit_logs (
-      id text PRIMARY KEY,
-      actor_user_id text REFERENCES users(id) ON DELETE SET NULL,
-      action varchar(40) NOT NULL,
-      resource_type varchar(120) NOT NULL,
-      resource_id varchar(80),
-      metadata_json jsonb NOT NULL DEFAULT '{}'::jsonb,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
     CREATE TABLE IF NOT EXISTS settings (
       id text PRIMARY KEY,
       user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -193,16 +108,13 @@ def upgrade() -> None:
       created_at timestamptz NOT NULL,
       updated_at timestamptz NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS ix_opportunities_type_status_deadline
-      ON opportunities(type, status, deadline_at);
     CREATE INDEX IF NOT EXISTS ix_analytics_events_name ON analytics_events(event_name);
     """)
 
 
 def downgrade() -> None:
     op.execute("""
-    DROP TABLE IF EXISTS analytics_events, settings, audit_logs, applications,
-      study_plans, ai_chats,
-      notifications, bookmarks, mock_tests, notes, lessons, courses, opportunities, organizations,
-      role_permissions, user_roles, permissions, roles, users CASCADE;
+    DROP TABLE IF EXISTS analytics_events, settings, study_plans, ai_chats,
+      mock_tests, opportunities, organizations, role_permissions, user_roles,
+      permissions, roles, users CASCADE;
     """)

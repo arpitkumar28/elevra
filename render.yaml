@@ -7,6 +7,8 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /api/v1/health
+    # Render pre-deploy commands require a paid web-service instance.
+    preDeployCommand: alembic upgrade head
     autoDeploy: true
     envVars:
       - key: ENVIRONMENT
@@ -27,6 +29,8 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /api/v1/health
+    # Render pre-deploy commands require a paid web-service instance.
+    preDeployCommand: alembic upgrade head
     autoDeploy: true
     envVars:
       - key: ENVIRONMENT

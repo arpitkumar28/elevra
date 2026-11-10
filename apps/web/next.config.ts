@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  typedRoutes: true,
   transpilePackages: ["@elevra/api-client", "@elevra/shared", "@elevra/ui"],
 };
 

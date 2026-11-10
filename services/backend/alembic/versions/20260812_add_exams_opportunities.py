@@ -9,9 +9,16 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # The existing authentication model uses this role flag. Keep it in this
-    # additive migration so already-created user tables are not replaced.
-    op.add_column("users", sa.Column("is_admin", sa.Boolean(), nullable=False, server_default=sa.text("false")))
+    # The legacy root may already include this field. Add it only when absent.
+    user_columns = {
+        column["name"]
+        for column in sa.inspect(op.get_bind()).get_columns("users", schema="public")
+    }
+    if "is_admin" not in user_columns:
+        op.add_column(
+            "users",
+            sa.Column("is_admin", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        )
     # enums
     exam_category = postgresql.ENUM(
         "government",
@@ -52,7 +59,7 @@ def upgrade() -> None:
 
     op.create_table(
         "exams",
-        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("slug", sa.String(length=255), nullable=False),
         sa.Column("short_description", sa.String(length=512), nullable=True),
@@ -81,11 +88,13 @@ def upgrade() -> None:
     op.create_index(op.f("ix_exams_category"), "exams", ["category"], unique=False)
     op.create_index(op.f("ix_exams_status"), "exams", ["status"], unique=False)
     op.create_index(op.f("ix_exams_verified"), "exams", ["verified"], unique=False)
+    op.create_index(op.f("ix_exams_conducting_body"), "exams", ["conducting_body"], unique=False)
+    op.create_index(op.f("ix_exams_application_deadline"), "exams", ["application_deadline"], unique=False)
 
     # exam content
     op.create_table(
         "exam_syllabi",
-        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("exam_id", sa.String(length=255), nullable=False),
         sa.Column("section_title", sa.String(length=255), nullable=True),
         sa.Column("content", sa.Text(), nullable=True),
@@ -97,7 +106,7 @@ def upgrade() -> None:
 
     op.create_table(
         "exam_patterns",
-        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("exam_id", sa.String(length=255), nullable=False),
         sa.Column("title", sa.String(length=255), nullable=True),
         sa.Column("description", sa.Text(), nullable=True),
@@ -109,7 +118,7 @@ def upgrade() -> None:
 
     op.create_table(
         "exam_dates",
-        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("exam_id", sa.String(length=255), nullable=False),
         sa.Column("title", sa.String(length=255), nullable=True),
         sa.Column("date", sa.String(length=255), nullable=True),
@@ -121,7 +130,7 @@ def upgrade() -> None:
 
     op.create_table(
         "exam_faqs",
-        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("exam_id", sa.String(length=255), nullable=False),
         sa.Column("question", sa.String(length=1024), nullable=True),
         sa.Column("answer", sa.Text(), nullable=True),
@@ -133,7 +142,7 @@ def upgrade() -> None:
     # opportunities
     op.create_table(
         "opportunities",
-        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("title", sa.String(length=255), nullable=False),
         sa.Column("slug", sa.String(length=255), nullable=False),
         sa.Column("type", opportunity_type, nullable=False),
@@ -186,6 +195,8 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_exam_syllabi_exam_id"), table_name="exam_syllabi")
     op.drop_table("exam_syllabi")
 
+    op.drop_index(op.f("ix_exams_application_deadline"), table_name="exams")
+    op.drop_index(op.f("ix_exams_conducting_body"), table_name="exams")
     op.drop_index(op.f("ix_exams_verified"), table_name="exams")
     op.drop_index(op.f("ix_exams_status"), table_name="exams")
     op.drop_index(op.f("ix_exams_category"), table_name="exams")

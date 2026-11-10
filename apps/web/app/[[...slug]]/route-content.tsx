@@ -703,16 +703,23 @@ function ResourceHub({ route, slug }: { route: string; slug?: string }) {
         : apiClient.listTests();
     request
       .then((data) => {
-        if (isCourses)
-          slug ? setDetail(data as Course) : setCourses((data as { items: Course[] }).items);
-        else if (isAffairs)
-          slug
-            ? setDetail(data as CurrentAffair)
-            : setAffairs((data as { items: CurrentAffair[] }).items);
-        else
+        if (isCourses) {
+          if (slug) {
+            setDetail(data as Course);
+          } else {
+            setCourses((data as { items: Course[] }).items);
+          }
+        } else if (isAffairs) {
+          if (slug) {
+            setDetail(data as CurrentAffair);
+          } else {
+            setAffairs((data as { items: CurrentAffair[] }).items);
+          }
+        } else {
           setTests(
             data as Array<{ id: string; title: string; type: string; duration_minutes: number }>,
           );
+        }
       })
       .catch((e: ApiError) => setError(e.message))
       .finally(() => setLoading(false));
