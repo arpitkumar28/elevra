@@ -83,59 +83,12 @@ def upgrade() -> None:
       created_at timestamptz NOT NULL,
       updated_at timestamptz NOT NULL
     );
-    CREATE TABLE IF NOT EXISTS courses (
-      id text PRIMARY KEY,
-      title varchar(320) NOT NULL,
-      slug varchar(180) NOT NULL UNIQUE,
-      description text NOT NULL,
-      subject varchar(120) NOT NULL,
-      difficulty varchar(40) NOT NULL,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS lessons (
-      id text PRIMARY KEY,
-      course_id text NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-      title varchar(320) NOT NULL,
-      content_url varchar(2048),
-      position integer NOT NULL,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS notes (
-      id text PRIMARY KEY,
-      user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      lesson_id text REFERENCES lessons(id) ON DELETE SET NULL,
-      title varchar(240) NOT NULL,
-      body text NOT NULL,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
     CREATE TABLE IF NOT EXISTS mock_tests (
       id text PRIMARY KEY,
       user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       exam_key varchar(120) NOT NULL,
       score_percent numeric(5,2) NOT NULL,
       analytics_json jsonb NOT NULL DEFAULT '{}'::jsonb,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS bookmarks (
-      id text PRIMARY KEY,
-      user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      opportunity_id text NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL,
-      CONSTRAINT uq_bookmark_user_opportunity UNIQUE (user_id, opportunity_id)
-    );
-    CREATE TABLE IF NOT EXISTS notifications (
-      id text PRIMARY KEY,
-      user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      channel varchar(40) NOT NULL,
-      title varchar(240) NOT NULL,
-      body text NOT NULL,
-      is_read boolean NOT NULL DEFAULT false,
-      payload_json jsonb NOT NULL DEFAULT '{}'::jsonb,
       created_at timestamptz NOT NULL,
       updated_at timestamptz NOT NULL
     );
@@ -157,25 +110,6 @@ def upgrade() -> None:
       created_at timestamptz NOT NULL,
       updated_at timestamptz NOT NULL
     );
-    CREATE TABLE IF NOT EXISTS applications (
-      id text PRIMARY KEY,
-      user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      opportunity_id text NOT NULL REFERENCES opportunities(id),
-      status varchar(80) NOT NULL DEFAULT 'draft',
-      checklist_json jsonb NOT NULL DEFAULT '[]'::jsonb,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS audit_logs (
-      id text PRIMARY KEY,
-      actor_user_id text REFERENCES users(id) ON DELETE SET NULL,
-      action varchar(40) NOT NULL,
-      resource_type varchar(120) NOT NULL,
-      resource_id varchar(80),
-      metadata_json jsonb NOT NULL DEFAULT '{}'::jsonb,
-      created_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL
-    );
     CREATE TABLE IF NOT EXISTS settings (
       id text PRIMARY KEY,
       user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -193,16 +127,36 @@ def upgrade() -> None:
       created_at timestamptz NOT NULL,
       updated_at timestamptz NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS ix_opportunities_type_status_deadline
-      ON opportunities(type, status, deadline_at);
+    DO $migration$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'opportunities'
+          AND column_name = 'deadline'
+      ) THEN
+        CREATE INDEX IF NOT EXISTS ix_opportunities_type_status_deadline
+          ON opportunities(type, status, deadline);
+      ELSIF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'opportunities'
+          AND column_name = 'deadline_at'
+      ) THEN
+        CREATE INDEX IF NOT EXISTS ix_opportunities_type_status_deadline
+          ON opportunities(type, status, deadline_at);
+      ELSE
+        RAISE EXCEPTION 'opportunities table has neither deadline nor deadline_at';
+      END IF;
+    END
+    $migration$;
     CREATE INDEX IF NOT EXISTS ix_analytics_events_name ON analytics_events(event_name);
     """)
 
 
 def downgrade() -> None:
     op.execute("""
-    DROP TABLE IF EXISTS analytics_events, settings, audit_logs, applications,
-      study_plans, ai_chats,
-      notifications, bookmarks, mock_tests, notes, lessons, courses, opportunities, organizations,
-      role_permissions, user_roles, permissions, roles, users CASCADE;
+    DROP TABLE IF EXISTS analytics_events, settings, study_plans, ai_chats,
+      mock_tests, opportunities, organizations, role_permissions, user_roles,
+      permissions, roles, users CASCADE;
     """)
