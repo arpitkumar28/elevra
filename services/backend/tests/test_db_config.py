@@ -20,8 +20,9 @@ def test_sync_postgres_urls_select_psycopg3(url):
     assert make_url(normalized).drivername == "postgresql+psycopg"
 
 
-def test_render_defaults_to_production_when_environment_is_missing(monkeypatch):
+def test_render_main_defaults_to_production_when_environment_is_missing(monkeypatch):
     monkeypatch.setenv("RENDER", "true")
+    monkeypatch.delenv("RENDER_GIT_BRANCH", raising=False)
     monkeypatch.delenv("ENVIRONMENT", raising=False)
     monkeypatch.setenv("APP_ENV", "development")
 
@@ -29,6 +30,18 @@ def test_render_defaults_to_production_when_environment_is_missing(monkeypatch):
 
     assert _resolve_environment() == "production"
     assert Settings().environment == "production"
+
+
+def test_render_develop_branch_defaults_to_staging(monkeypatch):
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv("RENDER_GIT_BRANCH", "develop")
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.setenv("APP_ENV", "production")
+
+    from app.core.config import Settings, _resolve_environment
+
+    assert _resolve_environment() == "staging"
+    assert Settings().environment == "staging"
 
 
 def test_explicit_render_environment_is_respected(monkeypatch):
