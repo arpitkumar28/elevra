@@ -1,35 +1,60 @@
 # Alembic migration history review
 
-## Current graph and affected tables
+> **Current status (2026-11-10):** This document was refreshed after the migration
+> graph repair in PR #7 and the public-schema RLS revision in PR #15. The older
+> collision notes in the prior revision of this document are historical and no
+> longer describe the current fresh-install path. GitHub Actions run #15 passed
+> the PostgreSQL 16 + pgvector fresh-upgrade/ORM parity test; run #27 passed the
+> same integration test with the RLS assertions. This proves a fresh disposable
+> database path, not compatibility with every previously deployed database.
+> No live Supabase migration has been executed.
 
-| Revision                           | Parent(s)                                   | Tables or objects affected                                                                                                                                                                                                                                                                                             | Compatibility notes                                                                                                                                                                                                                               |
-| ---------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `20260718_0001`                    | base                                        | `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `organizations`, `opportunities`, `courses`, `lessons`, `notes`, `mock_tests`, `bookmarks`, `notifications`, `ai_chats`, `study_plans`, `applications`, `audit_logs`, `settings`, `analytics_events`; indexes on opportunities and analytics events | `users`, `opportunities`, `courses`, `bookmarks`, `applications`, `notifications`, and `audit_logs` use legacy shapes. `CREATE TABLE IF NOT EXISTS` does not reconcile an existing incompatible table. Downgrade drops this group with `CASCADE`. |
-| `20260812_initial_tables`          | base                                        | `users`, `student_profiles`; indexes on email and profile user id                                                                                                                                                                                                                                                      | Creates `users` unconditionally. `student_profiles` is missing most active profile fields, and its user id has no FK/unique constraint.                                                                                                           |
-| `20260812_add_exams_opportunities` | `20260812_initial_tables`                   | adds `users.is_admin`; creates exam/opportunity enum types; creates `exams`, `exam_syllabi`, `exam_patterns`, `exam_dates`, `exam_faqs`, and `opportunities`; related indexes                                                                                                                                          | `opportunities` is unconditional and collides with the legacy root if both are upgraded. Enum creation is check-first, but the table operations are not. Several active model indexes are missing.                                                |
-| `20260813_enable_pgvector`         | `20260812_add_exams_opportunities`          | creates extension `vector`                                                                                                                                                                                                                                                                                             | Downgrade drops the extension, which may be shared by other objects.                                                                                                                                                                              |
-| `20260821_merge_deployment_heads`  | `20260718_0001`, `20260813_enable_pgvector` | no schema objects                                                                                                                                                                                                                                                                                                      | Merge-only revision. It produces one head but retains both independent bases.                                                                                                                                                                     |
-| `20260821_core_platform_domains`   | merge revision                              | `courses`, `current_affairs`, `tests`, `questions`, `question_options`, `test_attempts`, `test_answers`, `bookmarks`, `applications`, `notifications`, `audit_logs`                                                                                                                                                    | Unconditionally creates tables overlapping the legacy root. The active tables are mostly represented, but many ORM indexes are absent. Downgrade drops its tables.                                                                                |
+## Current migration graph
 
-The graph has a single head but two roots. A fresh `upgrade head` traverses both roots and reaches duplicate table operations. The active ORM contract is documented in [active-orm-schema.md](active-orm-schema.md).
+| Revision | Parent(s) | Current responsibility |
+|---|---|---|
+| `20260718_0001` | base | Legacy RBAC/reference/analytics tables: users (when absent), roles, permissions, user_roles, role_permissions, organizations, mock_tests, ai_chats, study_plans, settings, analytics_events |
+| `20260812_initial_tables` | base | Creates student_profiles and creates users only when absent; adds supporting indexes |
+| `20260812_add_exams_opportunities` | `20260812_initial_tables` | Exam/opportunity enum types and tables: exams, exam_syllabi, exam_patterns, exam_dates, exam_faqs, opportunities |
+| `20260813_enable_pgvector` | `20260812_add_exams_opportunities` | Installs the PostgreSQL `vector` extension |
+| `20260821_merge_deployment_heads` | `20260718_0001`, `20260813_enable_pgvector` | Merge-only revision joining the two roots |
+| `20260821_core_platform_domains` | merge revision | Creates courses, current_affairs, tests, questions, question_options, test_attempts, test_answers, bookmarks, applications, notifications, audit_logs |
+| `20261110_align_active_orm` | `20260821_core_platform_domains` | Reconciles users/profile fields, adds account_tokens and refresh_tokens, and completes ORM indexes |
+| `20261110_enable_public_rls` | `20261110_align_active_orm` | Enables Row Level Security on every public application table, leaving the Alembic ledger alone |
 
-## Baseline comparison
+The repository still has two historical roots which converge at the merge
+revision. The current bodies were reconciled for a fresh install and the CI
+integration test verifies the resulting schema against SQLAlchemy metadata.
+Do not infer compatibility with a database that has already run an older or
+different migration sequence without inspecting that database first.
 
-`supabase/migrations/20260815000000_initial_elevra_backend.sql` creates `vector`, the four exam/opportunity enum types, users, student profiles, refresh/account tokens, exams and detail tables, and opportunities; it enables RLS on those tables. It does not create current-affairs, course, test/question/attempt, bookmark, application, notification, or audit-log tables. It is therefore not a complete initializer for current ORM metadata.
+## Baseline SQL comparison
 
-The baseline's `users` shape is close to the active ORM model. It includes `refresh_tokens` and `account_tokens`, which no Alembic revision creates. The ORM uses SQLAlchemy `JSON`; the baseline uses `jsonb` for profile JSON. The baseline's email and token indexes include redundant explicit indexes alongside unique constraints. Exam and opportunity enum labels align with the ORM enums, but index coverage differs. No evidence in this repository proves the baseline was executed or is recorded by Supabase migration history.
+`supabase/migrations/20260815000000_initial_elevra_backend.sql` is an older,
+incomplete baseline. It creates some account, exam, opportunity and token
+objects, but it does not initialize all current ORM domains. It is not the
+selected fresh-install path; use the current Alembic graph. Repository history
+does not prove the baseline SQL was applied to any particular project.
 
-## Safe correction boundary
+## Fresh-install verification
 
-Do not delete or rename historical revision identifiers, stamp a database, or use destructive downgrades. A fresh-database correction and a deployed-database correction are different requirements: changed historical migration bodies affect only databases that have not applied those revisions; a new forward revision is needed for already-recorded histories. The two legacy table families require explicit data-preserving transformations, not `IF NOT EXISTS` alone.
+The opt-in integration test uses `docker-compose.migration-test.yml` and
+`services/backend/tests/test_migrations_postgres.py`. It accepts only the
+dedicated local PostgreSQL database `elevra_migration_test`, requires an empty
+public schema, runs `alembic upgrade head`, then checks:
 
-Before authoring a compatibility migration, inventory the actual Render target and each maintained environment read-only: schemas/tables/columns/constraints/indexes/enums/extensions, `public.alembic_version` rows, and whether the separate Supabase SQL baseline was applied. Until then, compatibility for any historical state is unverified. The supplied empty-public-schema result is not enough to establish the live Render mapping.
+- expected ORM tables, columns, nullability, types and server defaults;
+- foreign keys, indexes and uniqueness;
+- the installed `vector` extension and final Alembic revision;
+- RLS enabled on every public application table.
 
-## Disposable PostgreSQL/pgvector fresh-upgrade test
+Verification evidence:
 
-The opt-in test uses `docker-compose.migration-test.yml` and `services/backend/tests/test_migrations_postgres.py`. It accepts only local PostgreSQL database `elevra_migration_test`, requires an initially empty public schema, runs `alembic upgrade head`, and checks active ORM columns, nullability, types, foreign keys, indexes, uniqueness, `vector`, and the final revision.
+- [CI run #15 — fresh PostgreSQL/pgvector schema verification](https://github.com/arpitkumar28/elevra/actions/runs/42863342677)
+- [CI run #27 — RLS-enabled PostgreSQL/pgvector schema verification](https://github.com/arpitkumar28/elevra/actions/runs/42868755051)
 
-Example local commands (the generated test password stays in the shell environment):
+Example local command sequence (the generated password stays in the shell
+environment):
 
 ```bash
 export ELEVRA_MIGRATION_TEST_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
@@ -39,18 +64,54 @@ services/backend/.venv/bin/python -m pytest services/backend/tests/test_migratio
 docker compose -f docker-compose.migration-test.yml down
 ```
 
-The normal unit suite can be run separately with `services/backend/.venv/bin/python -m pytest services/backend/tests -q -m 'not integration'`. Selecting the integration test without its URL fails explicitly; it never skips for a missing database setting. The test does not drop or recreate a database. Run it only against the dedicated disposable service. The current migration graph is expected to fail the fresh-upgrade assertion; no successful PostgreSQL/pgvector run is claimed. Historical starting-state tests should be added only for states confirmed by database inventory.
+Run only against the dedicated disposable test service. The test intentionally
+rejects remote hosts and any database other than `elevra_migration_test`.
 
-## Admin bootstrap boundary
+## Current Supabase inventory (read-only)
 
-An admin bootstrap command is separate from schema initialization and must wait until the canonical schema passes the disposable PostgreSQL test. It should prompt for email and a hidden password, reuse the existing Pydantic registration password validation and bcrypt `hash_password`, lock/check for any existing active admin inside one transaction, abort on duplicates or an existing admin, and require operator identity verification before promoting an existing student. It must not be exposed over HTTP or log credentials. No bootstrap command is implemented or run by this review.
+The linked Supabase project was inspected on 2026-11-10:
 
-## Staging and rollback gate
+- `public` contained zero application tables;
+- there was no `public.alembic_version` history;
+- `auth.users` contained zero accounts;
+- the `vector` extension was available but not installed.
 
-1. Verify the Render service's database target in the dashboard without copying the connection string.
-2. Collect the read-only schema and Alembic revision inventory; identify whether the baseline SQL was applied.
-3. Review the forward migration and test an empty database plus every confirmed starting state on disposable PostgreSQL with pgvector.
-4. Take and verify a staging backup/PITR point, apply the reviewed migration only to staging, then check revision rows, expected schema, readiness, login, and account-token flows.
-5. Production requires a separate review/approval after staging evidence. Never run the migration workflow against production as a discovery step.
+This is an inventory of the linked Supabase project only. It does not prove
+that the Render production service's `DATABASE_URL` points to that project.
+No DDL, migration, seed data, user creation or other database write was made.
+Verify the Render target before treating this inventory as the service's
+actual database starting state.
 
-Use a reviewed forward fix for migration failure. Restore a provider backup/PITR point only under an explicit recovery decision. Existing downgrade functions drop data and are not a recommended rollback procedure.
+## RLS and database access model
+
+The backend uses its server-side database connection as the application data
+access layer. The RLS revision enables RLS for public application tables but
+does not add `anon` or `authenticated` policies. Keep direct Data API access
+deny-by-default unless a separate reviewed feature explicitly requires it.
+The FastAPI service must connect using the intended privileged server-side
+database role; never place that credential in a `NEXT_PUBLIC_*` variable.
+
+## First deployment and recovery gate
+
+1. Verify which Supabase project the production Render `DATABASE_URL` targets,
+   without copying or sharing its value.
+2. Confirm a current backup/PITR point and verify recovery instructions.
+3. Run the reviewed migration workflow against staging first; this repository's
+   Render service is Free, so do not assume the Render `preDeployCommand` ran.
+4. Verify the final revision, tables, RLS, vector extension, API readiness,
+   authentication, refresh rotation, student ownership and admin authorization.
+5. Approve production separately after staging evidence and target verification.
+
+The migration workflow in `.github/workflows/deploy-migrations.yml` is manually
+dispatched and environment-gated. Do not run it as a discovery step or against
+an unverified target. Do not use destructive Alembic downgrades as routine
+rollback; use a reviewed forward fix or an explicitly approved backup restore.
+
+## Initial administrator
+
+The first administrator is created only after the target environment's schema
+is migrated and verified. PR #14 adds an interactive, guarded command:
+`python -m app.commands.bootstrap_admin`. It requires a TTY, hidden password
+input, strong registration-compliant password, refuses existing admins and
+existing student accounts, and is not a public HTTP endpoint. The command has
+not been run in any environment.
