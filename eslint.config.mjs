@@ -1,11 +1,7 @@
-// Root ESLint flat config. Apps can extend this through @elevra/config.
-import { FlatCompat } from "@eslint/eslintrc";
+// Root ESLint flat config shared by the web, admin, and marketing apps.
 import js from "@eslint/js";
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import tseslint from "typescript-eslint";
-
-const compat = new FlatCompat({
-  baseDirectory: import.meta.dirname,
-});
 
 export default [
   {
@@ -20,7 +16,7 @@ export default [
     ],
   },
   js.configs.recommended,
-  ...compat.extends("next/core-web-vitals"),
+  ...nextCoreWebVitals,
   ...tseslint.configs.recommendedTypeChecked,
   {
     languageOptions: {
