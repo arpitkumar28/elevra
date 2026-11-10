@@ -23,13 +23,18 @@ export type Opportunity = {
   title: string;
   type: string;
   organization?: string;
+  summary?: string;
   description?: string;
   eligibility?: string;
   location?: string;
   remote?: boolean;
+  application_start?: string;
   deadline?: string;
   application_url?: string;
+  source_name?: string;
   source_url?: string;
+  source_checked_at?: string;
+  closed_at?: string;
   verified: boolean;
   verified_at?: string;
   status: string;
@@ -78,6 +83,17 @@ export type Application = {
   status: string;
   notes?: string;
   external_url?: string;
+  applied_at?: string;
+  follow_up_date?: string;
+};
+export type ApplicationEvent = {
+  id: string;
+  application_id: string;
+  user_id: string;
+  previous_status?: string | null;
+  new_status: string;
+  note?: string | null;
+  created_at: string;
 };
 export type Notification = {
   id: string;
@@ -355,10 +371,14 @@ export function createApiClient({ baseUrl, fetch: fetcher = fetch }: ApiClientOp
         body: JSON.stringify(data),
         headers: { Authorization: `Bearer ${token}` },
       }),
-    updateApplication: (id: string, data: Partial<Application>, token: string) =>
+    updateApplication: (id: string, data: Partial<Application> & { status_note?: string }, token: string) =>
       request<Application>(`/applications/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    listApplicationEvents: (id: string, token: string) =>
+      request<ApplicationEvent[]>(`/applications/${id}/events`, {
         headers: { Authorization: `Bearer ${token}` },
       }),
     listNotifications: (token: string) =>
@@ -432,9 +452,16 @@ export function createApiClient({ baseUrl, fetch: fetcher = fetch }: ApiClientOp
         body: JSON.stringify(data),
         headers: { Authorization: `Bearer ${token}` },
       }),
-    adminContentAction: <T>(kind: AdminContentKind, id: string, action: string, token: string) =>
+    adminContentAction: <T>(
+      kind: AdminContentKind,
+      id: string,
+      action: string,
+      token: string,
+      data?: Record<string, unknown>,
+    ) =>
       request<T>(`/admin/content/${kind}/${encodeURIComponent(id)}/actions/${action}`, {
         method: "POST",
+        body: data ? JSON.stringify(data) : undefined,
         headers: { Authorization: `Bearer ${token}` },
       }),
     listAdminQueue: (params: Record<string, string | number | undefined>, token: string) =>
