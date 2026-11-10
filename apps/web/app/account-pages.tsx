@@ -304,7 +304,7 @@ export function DashboardPage() {
       <section className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           ["Saved items", bookmarks.length, "/saved"],
-          ["Applications", applications.length, "#applications"],
+          ["Applications", applications.length, "/applications"],
           ["Notifications", notifications.length, "#notifications"],
           ["Practice attempts", attempts.length, "/tests"],
         ].map(([label, value, href]) => (
@@ -1046,19 +1046,17 @@ export function OpportunityAccountActions({
   const [error, setError] = useState("");
   const opportunity = item as Opportunity;
   const bookmarkType = isExam ? "exam" : "opportunity";
-  const legacyBookmarkTypes = isExam
-    ? ["exam"]
-    : [opportunity.type, opportunity.type === "hackathon" ? "competition" : opportunity.type];
   const canBookmark = true;
 
   useEffect(() => {
     if (status !== "authenticated") return;
     void withSession((token) => authenticatedApi.listBookmarks(token))
       .then((bookmarks) => {
+        const legacyType = opportunity.type === "hackathon" ? "competition" : opportunity.type;
         const match = bookmarks.find(
           (bookmark) =>
             bookmark.entity_id === item.id &&
-            (bookmark.entity_type === bookmarkType || legacyBookmarkTypes.includes(bookmark.entity_type)),
+            (bookmark.entity_type === bookmarkType || (!isExam && bookmark.entity_type === legacyType)),
         );
         setBookmarkId(match?.id || "");
       })
@@ -1076,7 +1074,7 @@ export function OpportunityAccountActions({
           ),
         );
     }
-  }, [bookmarkType, isExam, item.id, legacyBookmarkTypes.join("|"), status, withSession]);
+  }, [bookmarkType, isExam, item.id, opportunity.type, status, withSession]);
 
   if (status !== "authenticated") {
     return (
