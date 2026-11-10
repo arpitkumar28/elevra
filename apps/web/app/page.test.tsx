@@ -15,13 +15,15 @@ vi.mock("next/navigation", () => ({
 import Page from "./[[...slug]]/page";
 
 describe("Elevra web app", () => {
-  it("renders the home experience", () => {
-    render(<Page params={{ slug: [] }} />);
+  it("renders the home experience", async () => {
+    render(await Page({ params: Promise.resolve({ slug: [] }) }));
     expect(screen.getByRole("heading", { name: /your career.*exam companion/i })).toBeDefined();
   });
 
-  it("delegates unsupported paths to Next.js not-found handling", () => {
-    expect(() => Page({ params: { slug: ["not-a-route"] } })).toThrow("notFound called");
+  it("delegates unsupported paths to Next.js not-found handling", async () => {
+    await expect(Page({ params: Promise.resolve({ slug: ["not-a-route"] }) })).rejects.toThrow(
+      "notFound called",
+    );
     expect(notFoundMock).toHaveBeenCalledOnce();
   });
 });

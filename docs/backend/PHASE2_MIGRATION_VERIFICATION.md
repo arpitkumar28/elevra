@@ -21,14 +21,14 @@ No production Supabase or Render database was accessed. No production migration 
 
 The workflow used the configured `pgvector/pgvector:pg16` service image and a dedicated `elevra_migration_test` database. The PostgreSQL service log reports PostgreSQL **16.15** and a successful readiness check. The integration test verified that the public schema was empty before starting the upgrade.
 
-| Job / check | Result | Evidence |
-|---|---|---|
-| Web | Passed | `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` completed successfully |
-| Mobile | Passed | `flutter analyze` and `flutter test` completed successfully |
-| Backend dependencies | Passed | `pip check` passed |
-| Backend non-integration tests | Passed | 58 passed, 1 deselected, 1 warning |
-| PostgreSQL migration integration | **Failed** | `alembic upgrade head` exited 1 |
-| Dependency security audit | **Failed** | `pnpm audit --prod --audit-level high` found 49 vulnerabilities |
+| Job / check                      | Result     | Evidence                                                                            |
+| -------------------------------- | ---------- | ----------------------------------------------------------------------------------- |
+| Web                              | Passed     | `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` completed successfully |
+| Mobile                           | Passed     | `flutter analyze` and `flutter test` completed successfully                         |
+| Backend dependencies             | Passed     | `pip check` passed                                                                  |
+| Backend non-integration tests    | Passed     | 58 passed, 1 deselected, 1 warning                                                  |
+| PostgreSQL migration integration | **Failed** | `alembic upgrade head` exited 1                                                     |
+| Dependency security audit        | **Failed** | `pnpm audit --prod --audit-level high` found 49 vulnerabilities                     |
 
 The dependency security result is separate from the database migration failure. The audit output reports 4 low, 19 moderate, 19 high, and 7 critical findings. Examples in the log include Next.js versions in the admin/web/marketing workspaces, sharp, source-map-js, and zod. The Python `pip-audit` step was skipped because the preceding pnpm audit command failed. These findings require package-level triage; the summary count alone does not establish exploitability in each deployed path.
 
