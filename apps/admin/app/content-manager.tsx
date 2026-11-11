@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import {
   type AdminContentKind,
+  type AdminOverview,
   type AdminQueueItem,
   type AdminTestDetail,
   ApiError,
@@ -304,22 +305,25 @@ function AdminDashboard() {
   const [reviews, setReviews] = useState<AdminQueueItem[]>([]);
   const [draftTotal, setDraftTotal] = useState(0);
   const [reviewTotal, setReviewTotal] = useState(0);
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [draftPage, reviewPage] = await withSession((token) =>
+      const [draftPage, reviewPage, overviewData] = await withSession((token) =>
         Promise.all([
           api.listAdminQueue({ status: "draft", page: 1, page_size: 5 }, token),
           api.listAdminQueue({ status: "pending_review", page: 1, page_size: 5 }, token),
+          api.getAdminOverview(token).catch(() => null),
         ]),
       );
       setDrafts(draftPage.items);
       setReviews(reviewPage.items);
       setDraftTotal(draftPage.total);
       setReviewTotal(reviewPage.total);
+      setOverview(overviewData);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load content activity.");
     } finally {
@@ -374,7 +378,7 @@ function AdminDashboard() {
 
       {error && <Feedback tone="error" message={error} retry={() => void load()} />}
 
-      <section aria-label="Content overview" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section aria-label="Content overview" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <DashboardMetric
           label="Drafts"
           value={loading ? null : draftTotal}
@@ -390,11 +394,25 @@ function AdminDashboard() {
           tone="olive"
         />
         <DashboardMetric
-          label="Content areas"
-          value={5}
-          note="Manage the student resource library"
-          icon={BookOpenCheck}
+          label="Published opportunities"
+          value={overview?.published_opportunities ?? null}
+          note="Visible in student discovery"
+          icon={BriefcaseBusiness}
           tone="mint"
+        />
+        <DashboardMetric
+          label="Closing in 7 days"
+          value={overview?.closing_soon_opportunities ?? null}
+          note="Published listings approaching deadline"
+          icon={ClipboardList}
+          tone="olive"
+        />
+        <DashboardMetric
+          label="Applications tracked"
+          value={overview?.total_applications ?? null}
+          note="Student application records"
+          icon={GraduationCap}
+          tone="sage"
         />
         <Link
           href="/queue"
@@ -433,9 +451,41 @@ function AdminDashboard() {
             loading={loading}
           />
         </section>
-        <QuickCreatePanel />
+        <div className="space-y-6">
+          <QuickCreatePanel />
+          <RecentAdminActivity items={overview?.recent_activity ?? []} />
+        </div>
       </div>
     </main>
+  );
+}
+
+function RecentAdminActivity({
+  items,
+}: {
+  items: AdminOverview["recent_activity"];
+}) {
+  return (
+    <section className="rounded-2xl border border-[#e1e8e1] bg-white p-5 shadow-[0_8px_24px_rgba(25,54,39,.035)] sm:p-6">
+      <p className="text-xs font-bold uppercase tracking-[.14em] text-[#668b59]">Audit trail</p>
+      <h2 className="mt-2 text-lg font-semibold text-[#20352a]">Recent admin activity</h2>
+      {items.length ? (
+        <ol className="mt-4 space-y-3">
+          {items.map((item) => (
+            <li key={item.id} className="border-l-2 border-[#dfe7df] pl-3">
+              <p className="text-sm font-semibold text-[#28483b]">
+                {item.action.replaceAll("_", " ")} · {item.entity.replaceAll("_", " ")}
+              </p>
+              <p className="mt-1 text-xs text-[#7a867e]">
+                {new Date(item.created_at).toLocaleString()}
+              </p>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="mt-3 text-sm text-[#7a867e]">No admin actions have been recorded yet.</p>
+      )}
+    </section>
   );
 }
 
