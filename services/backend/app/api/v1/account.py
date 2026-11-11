@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -18,6 +18,23 @@ router = APIRouter(tags=["student"])
 
 def _record(item):
     return {column.name: getattr(item, column.name) for column in item.__table__.columns}
+
+
+def _next_event_timestamp(db: Session, application_id: str) -> datetime:
+    """Return a strictly increasing timestamp for one application's event stream."""
+    latest = (
+        db.query(ApplicationEvent.created_at)
+        .filter(ApplicationEvent.application_id == application_id)
+        .order_by(ApplicationEvent.created_at.desc())
+        .first()
+    )
+    now = datetime.now(UTC)
+    if latest is None or latest[0] is None:
+        return now
+    previous = latest[0]
+    if previous.tzinfo is None:
+        previous = previous.replace(tzinfo=UTC)
+    return max(now, previous + timedelta(microseconds=1))
 
 
 @router.post("/bookmarks", status_code=status.HTTP_201_CREATED)
@@ -114,6 +131,7 @@ def create_application(
         previous_status=None,
         new_status="saved",
         note="Application tracking started",
+        created_at=_next_event_timestamp(db, item.id),
     ))
     record_audit(db, action="APPLICATION", entity="application", entity_id=item.id, actor_id=user.id, request=request)
     db.commit()
@@ -140,10 +158,12 @@ def update_application(
     db: Annotated[Session, Depends(get_db)],
     user=Depends(get_current_user),
 ):
-    item = db.query(Application).filter(
-        Application.id == application_id,
-        Application.user_id == user.id,
-    ).first()
+    item = (
+        db.query(Application)
+        .filter(Application.id == application_id, Application.user_id == user.id)
+        .with_for_update()
+        .first()
+    )
     if not item:
         raise HTTPException(status_code=404, detail="application not found")
 
@@ -175,6 +195,7 @@ def update_application(
             previous_status=previous_status,
             new_status=next_status,
             note=status_note,
+            created_at=_next_event_timestamp(db, item.id),
         ))
 
     for key, value in values.items():
@@ -209,7 +230,7 @@ def list_application_events(
     events = db.query(ApplicationEvent).filter(
         ApplicationEvent.application_id == item.id,
         ApplicationEvent.user_id == user.id,
-    ).order_by(ApplicationEvent.created_at.asc(), ApplicationEvent.id.asc()).all()
+    ).order_by(ApplicationEvent.created_at.asc()).all()
     return [_record(event) for event in events]
 
 
