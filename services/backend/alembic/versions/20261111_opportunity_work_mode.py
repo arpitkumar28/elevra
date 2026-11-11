@@ -28,6 +28,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_opportunities_work_mode", table_name="opportunities")
-    op.drop_constraint("ck_opportunities_work_mode", "opportunities", type_="check")
-    op.drop_column("opportunities", "work_mode")
+    raise RuntimeError(
+        "20261111_opportunity_work_mode is forward-only; downgrading would discard hybrid/on-site classifications"
+    )
