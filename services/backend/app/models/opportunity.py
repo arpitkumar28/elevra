@@ -46,6 +46,7 @@ class Opportunity(Base):
     eligibility: Mapped[str | None] = mapped_column(Text, nullable=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     remote: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    work_mode: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
     application_start: Mapped[Date | None] = mapped_column(Date, nullable=True)
     application_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     source_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
