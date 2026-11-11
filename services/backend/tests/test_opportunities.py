@@ -33,6 +33,7 @@ def test_opportunity_mutation_authorization_and_validation(client, admin_headers
     assert client.patch(f"/api/v1/opportunities/{opportunity_id}", json={"title": "Updated Opportunity"}, headers=admin_headers).status_code == 200
     assert client.delete(f"/api/v1/opportunities/{opportunity_id}", headers=admin_headers).status_code == 204
     assert client.post("/api/v1/opportunities", json=opportunity_payload(slug="Bad slug", type="invalid"), headers=admin_headers).status_code == 422
+    assert client.post("/api/v1/opportunities", json=opportunity_payload(slug="invalid-work-mode", work_mode="flexible"), headers=admin_headers).status_code == 422
     assert client.get("/api/v1/opportunities?type=invalid").status_code == 422
 
 
