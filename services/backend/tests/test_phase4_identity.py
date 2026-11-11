@@ -252,13 +252,16 @@ def test_role_enforcement_and_privilege_escalation_attempts(client, db):
         "/api/v1/admin/overview",
         headers={"Authorization": f"Bearer {admin['access_token']}"},
     )
-    assert admin_response.status_code == 501
+    assert admin_response.status_code == 200
+    assert admin_response.json()["total_students"] == 1
+    assert "pending_review_opportunities" in admin_response.json()
 
     super_response = client.get(
         "/api/v1/admin/overview",
         headers={"Authorization": f"Bearer {super_admin['access_token']}"},
     )
-    assert super_response.status_code == 501
+    assert super_response.status_code == 200
+    assert super_response.json()["total_students"] == 1
 
     privilege_attempt = client.post(
         "/api/v1/auth/register",
