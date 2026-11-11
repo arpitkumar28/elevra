@@ -40,6 +40,7 @@ type ContentRow = Record<string, unknown> & {
   name?: string;
   status: string;
   verified?: boolean;
+  review_note?: string | null;
   questions?: AdminTestDetail["questions"];
 };
 type Field = {
@@ -219,14 +220,9 @@ function contentActions(kind: AdminContentKind, row: ContentRow) {
     if (["draft", "rejected", "verified", "published", "closed"].includes(row.status))
       actions.push({ action: "archive", label: "Archive", destructive: true });
   } else if (kind === "exams") {
-    if (
-      row.status === "draft" ||
-      (kind === "opportunities" && ["archived", "closed"].includes(row.status))
-    )
+    if (row.status === "draft" || row.status === "archived")
       actions.push({ action: "publish", label: "Publish" });
     if (row.status === "published") actions.push({ action: "unpublish", label: "Unpublish" });
-    if (kind === "opportunities" && row.status === "published")
-      actions.push({ action: "close", label: "Close" });
     if (row.status !== "archived")
       actions.push({ action: "archive", label: "Archive", destructive: true });
     if (["draft", "published", "archived", "closed"].includes(row.status))
