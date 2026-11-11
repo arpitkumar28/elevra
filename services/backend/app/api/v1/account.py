@@ -105,6 +105,8 @@ def create_application(
                 status_code=409,
                 detail="Only a currently published Elevra opportunity can be tracked",
             )
+        if opportunity.deadline is not None and opportunity.deadline < datetime.now(UTC).date():
+            raise HTTPException(status_code=409, detail="The application deadline has passed")
         existing = db.query(Application).filter(
             Application.user_id == user.id,
             Application.opportunity_id == opportunity.id,
