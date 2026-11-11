@@ -119,13 +119,16 @@ const fields: Record<AdminContentKind, Field[]> = {
       ],
     },
     { name: "organization", label: "Organization", maxLength: 255 },
+    { name: "summary", label: "Short summary", kind: "textarea", maxLength: 512 },
     { name: "description", label: "Description", kind: "textarea" },
     { name: "eligibility", label: "Eligibility", kind: "textarea" },
     { name: "location", label: "Location", maxLength: 255 },
     { name: "remote", label: "Remote opportunity", kind: "checkbox" },
-    { name: "deadline", label: "Deadline", kind: "date" },
-    { name: "application_url", label: "Application URL", kind: "url" },
-    { name: "source_url", label: "Source URL", kind: "url" },
+    { name: "application_start", label: "Applications open", kind: "date" },
+    { name: "deadline", label: "Application deadline", kind: "date" },
+    { name: "application_url", label: "Application URL", kind: "url", required: true },
+    { name: "source_name", label: "Official source name", maxLength: 255, required: true },
+    { name: "source_url", label: "Official source URL", kind: "url", required: true },
   ],
   courses: [
     { name: "title", label: "Course title", required: true, maxLength: 255 },
@@ -174,7 +177,7 @@ const fields: Record<AdminContentKind, Field[]> = {
 
 const states: Record<AdminContentKind, string[]> = {
   exams: ["draft", "published", "archived"],
-  opportunities: ["draft", "published", "closed", "archived"],
+  opportunities: ["draft", "pending_review", "verified", "published", "closed", "rejected", "archived"],
   courses: ["draft", "pending_review", "verified", "published", "rejected", "expired"],
   "current-affairs": ["draft", "pending_review", "verified", "published", "rejected", "expired"],
   tests: ["draft", "published"],
@@ -199,7 +202,23 @@ type QueuePreviewHref = `/queue?status=${QueueStatus}`;
 
 function contentActions(kind: AdminContentKind, row: ContentRow) {
   const actions: Array<{ action: string; label: string; destructive?: boolean }> = [];
-  if (["exams", "opportunities"].includes(kind)) {
+  if (kind === "opportunities") {
+    if (["draft", "rejected"].includes(row.status))
+      actions.push({ action: "submit", label: "Submit for review" });
+    if (row.status === "pending_review") {
+      actions.push({ action: "approve", label: "Approve & verify" });
+      actions.push({ action: "request-changes", label: "Request changes", destructive: true });
+      actions.push({ action: "reject", label: "Reject", destructive: true });
+    }
+    if (row.status === "verified")
+      actions.push({ action: "publish", label: "Publish" });
+    if (row.status === "published") {
+      actions.push({ action: "unpublish", label: "Unpublish" });
+      actions.push({ action: "close", label: "Close applications", destructive: true });
+    }
+    if (["draft", "rejected", "verified", "published", "closed"].includes(row.status))
+      actions.push({ action: "archive", label: "Archive", destructive: true });
+  } else if (kind === "exams") {
     if (
       row.status === "draft" ||
       (kind === "opportunities" && ["archived", "closed"].includes(row.status))
@@ -757,6 +776,7 @@ function ContentManager({ kind }: { kind: AdminContentKind }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [reviewNote, setReviewNote] = useState("");
   const [questionEditId, setQuestionEditId] = useState("");
   const [questionText, setQuestionText] = useState("");
   const [questionExplanation, setQuestionExplanation] = useState("");
@@ -883,7 +903,12 @@ function ContentManager({ kind }: { kind: AdminContentKind }) {
 
   async function runAction(action: string) {
     if (!selected) return;
-    const destructive = ["archive", "expire"].includes(action);
+    const noteRequired = kind === "opportunities" && ["request-changes", "reject"].includes(action);
+    if (noteRequired && reviewNote.trim().length < 5) {
+      setError("Add a review note of at least 5 characters before returning or rejecting this opportunity.");
+      return;
+    }
+    const destructive = ["archive", "expire", "close", "reject", "request-changes"].includes(action);
     if (
       destructive &&
       !window.confirm(`Confirm ${action} for “${selected.title || selected.name}”?`)
@@ -894,11 +919,18 @@ function ContentManager({ kind }: { kind: AdminContentKind }) {
     setMessage("");
     try {
       const updated = await withSession((token) =>
-        api.adminContentAction<ContentRow>(kind, selected.id, action, token),
+        api.adminContentAction<ContentRow>(
+          kind,
+          selected.id,
+          action,
+          token,
+          noteRequired ? { review_note: reviewNote.trim() } : undefined,
+        ),
       );
       setSelected(updated);
       setForm(toForm(kind, updated));
       setMessage(`Status action completed: ${action}.`);
+      if (noteRequired) setReviewNote("");
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to update publication status.");
@@ -1009,6 +1041,7 @@ function ContentManager({ kind }: { kind: AdminContentKind }) {
   }
 
   const actions = useMemo(() => (selected ? contentActions(kind, selected) : []), [kind, selected]);
+  const selectedCanEdit = !selected || kind !== "opportunities" || ["draft", "rejected"].includes(selected.status);
   return (
     <main className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -1186,6 +1219,11 @@ function ContentManager({ kind }: { kind: AdminContentKind }) {
               {selected && (
                 <div className="mt-2">
                   <StatusBadge value={selected.status} verified={Boolean(selected.verified)} />
+                  {kind === "opportunities" && selected.review_note && (
+                    <p className="mt-2 max-w-2xl rounded-xl bg-[#f7f8f4] p-3 text-sm text-slate-600">
+                      <span className="font-semibold">Latest review note:</span> {selected.review_note}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -1201,6 +1239,26 @@ function ContentManager({ kind }: { kind: AdminContentKind }) {
               Close editor
             </button>
           </div>
+          {kind === "opportunities" && selected?.status === "pending_review" && (
+            <label className="mt-6 block max-w-3xl text-sm font-semibold">
+              Review note
+              <textarea
+                rows={3}
+                value={reviewNote}
+                onChange={(event) => setReviewNote(event.target.value)}
+                placeholder="Explain what needs to change, or why this listing should be rejected."
+                className={inputClass}
+              />
+              <span className="mt-1 block text-xs font-normal text-slate-500">
+                Required when requesting changes or rejecting. At least 5 characters.
+              </span>
+            </label>
+          )}
+          {!selectedCanEdit && kind === "opportunities" && (
+            <p className="mt-5 rounded-xl bg-[#f7f8f4] p-3 text-sm text-slate-600">
+              This opportunity is in {selected?.status.replaceAll("_", " ")} status. Content editing is locked until it is returned to draft.
+            </p>
+          )}
           <form
             onSubmit={(event) => void submitContent(event)}
             className="mt-6 grid gap-4 sm:grid-cols-2"
@@ -1210,13 +1268,13 @@ function ContentManager({ kind }: { kind: AdminContentKind }) {
                 key={field.name}
                 field={field}
                 value={form[field.name]}
-                disabled={saving}
+                disabled={saving || !selectedCanEdit}
                 onChange={(value) => setForm((current) => ({ ...current, [field.name]: value }))}
               />
             ))}
             <div className="flex flex-wrap gap-3 sm:col-span-2">
               <button
-                disabled={saving}
+                disabled={saving || !selectedCanEdit}
                 className="rounded-xl bg-[#145b48] px-5 py-2.5 font-semibold text-white disabled:opacity-60"
               >
                 {saving ? "Saving…" : selected ? "Save changes" : "Create draft"}

@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
   type Application,
+  type ApplicationEvent,
   type Exam,
   type Notification,
   type Opportunity,
@@ -303,7 +304,7 @@ export function DashboardPage() {
       <section className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           ["Saved items", bookmarks.length, "/saved"],
-          ["Applications", applications.length, "#applications"],
+          ["Applications", applications.length, "/applications"],
           ["Notifications", notifications.length, "#notifications"],
           ["Practice attempts", attempts.length, "/tests"],
         ].map(([label, value, href]) => (
@@ -691,6 +692,221 @@ export function PracticeTestPage({ testId }: { testId: string }) {
   );
 }
 
+export function ApplicationsPage() {
+  const { withSession } = useAuth();
+  const [items, setItems] = useState<Application[]>([]);
+  const [events, setEvents] = useState<Record<string, ApplicationEvent[]>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [draftStatuses, setDraftStatuses] = useState<Record<string, string>>({});
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState("");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const result = await withSession((token) => authenticatedApi.listApplications(token));
+      setItems(result);
+      setDraftStatuses(Object.fromEntries(result.map((item) => [item.id, item.status])));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load your application tracker.");
+    } finally {
+      setLoading(false);
+    }
+  }, [withSession]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const nextStatuses: Record<string, string[]> = {
+    saved: ["applied", "withdrawn"],
+    applied: ["in_progress", "interview", "selected", "rejected", "withdrawn"],
+    in_progress: ["interview", "selected", "rejected", "withdrawn"],
+    interview: ["selected", "rejected", "withdrawn"],
+    selected: ["withdrawn"],
+    rejected: ["applied", "withdrawn"],
+    withdrawn: ["applied"],
+  };
+
+  async function updateStatus(item: Application) {
+    const nextStatus = draftStatuses[item.id] || item.status;
+    if (nextStatus === item.status) return;
+    setBusyId(item.id);
+    setError("");
+    setMessage("");
+    try {
+      const updated = await withSession((token) =>
+        authenticatedApi.updateApplication(
+          item.id,
+          { status: nextStatus, status_note: notes[item.id]?.trim() || undefined },
+          token,
+        ),
+      );
+      setItems((current) => current.map((entry) => entry.id === item.id ? updated : entry));
+      setDraftStatuses((current) => ({ ...current, [item.id]: updated.status }));
+      setNotes((current) => ({ ...current, [item.id]: "" }));
+      const history = await withSession((token) => authenticatedApi.listApplicationEvents(item.id, token));
+      setEvents((current) => ({ ...current, [item.id]: history }));
+      setMessage("Application status updated.");
+    } catch (cause) {
+      setDraftStatuses((current) => ({ ...current, [item.id]: item.status }));
+      setError(cause instanceof Error ? cause.message : "Unable to update application status.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function updateFollowUp(item: Application, followUpDate: string) {
+    setBusyId(item.id);
+    setError("");
+    try {
+      const updated = await withSession((token) =>
+        authenticatedApi.updateApplication(
+          item.id,
+          { follow_up_date: followUpDate || null },
+          token,
+        ),
+      );
+      setItems((current) => current.map((entry) => entry.id === item.id ? updated : entry));
+      setMessage("Follow-up date saved.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to save follow-up date.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function toggleHistory(item: Application) {
+    if (expanded === item.id) {
+      setExpanded(null);
+      return;
+    }
+    setExpanded(item.id);
+    if (events[item.id]) return;
+    try {
+      const history = await withSession((token) => authenticatedApi.listApplicationEvents(item.id, token));
+      setEvents((current) => ({ ...current, [item.id]: history }));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load application history.");
+    }
+  }
+
+  if (loading) {
+    return <main className="mx-auto max-w-5xl px-5 py-12" aria-live="polite">Loading your applications…</main>;
+  }
+
+  return (
+    <main className="mx-auto max-w-5xl px-5 py-12 lg:px-8">
+      <p className="text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">Your career progress</p>
+      <h1 className="mt-3 text-4xl font-semibold tracking-tight">Application tracker</h1>
+      <p className="mt-3 text-[#63736c]">
+        Keep your progress, follow-up dates and private notes in one place. Status updates are self-reported.
+      </p>
+      {error && <p role="alert" className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+      {message && <p role="status" className="mt-5 rounded-xl bg-[#eef4e8] p-3 text-sm text-[#315d40]">{message}</p>}
+      {items.length ? (
+        <ul className="mt-8 space-y-4">
+          {items.map((item) => {
+            const options = Array.from(new Set([item.status, ...(nextStatuses[item.status] || [])]));
+            const selectedStatus = draftStatuses[item.id] || item.status;
+            return (
+              <li key={item.id} className="rounded-2xl border border-[#e3e9e4] bg-white p-5 sm:p-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold">{item.title}</h2>
+                    <p className="mt-1 text-sm text-[#63736c]">{item.organization || "Organization not provided"}</p>
+                    <p className="mt-1 text-xs capitalize text-[#718078]">Current status: {item.status.replaceAll("_", " ")}</p>
+                  </div>
+                  {item.external_url && (
+                    <a href={item.external_url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-[#145b48] underline underline-offset-4">
+                      Employer application ↗
+                    </a>
+                  )}
+                </div>
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  <label className="text-sm font-semibold">
+                    Update application status
+                    <select
+                      value={selectedStatus}
+                      disabled={busyId === item.id}
+                      onChange={(event) => setDraftStatuses((current) => ({ ...current, [item.id]: event.target.value }))}
+                      className={inputClass}
+                    >
+                      {options.map((value) => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-sm font-semibold">
+                    Follow-up date
+                    <input
+                      type="date"
+                      value={item.follow_up_date || ""}
+                      disabled={busyId === item.id}
+                      onChange={(event) => void updateFollowUp(item, event.target.value)}
+                      className={inputClass}
+                    />
+                  </label>
+                </div>
+                <label className="mt-3 block text-sm font-semibold">
+                  Note for this status update
+                  <input
+                    value={notes[item.id] || ""}
+                    onChange={(event) => setNotes((current) => ({ ...current, [item.id]: event.target.value }))}
+                    placeholder="Optional note, e.g. submitted the application form"
+                    className={inputClass}
+                  />
+                </label>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={busyId === item.id || selectedStatus === item.status}
+                    onClick={() => void updateStatus(item)}
+                    className="rounded-xl bg-[#145b48] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {busyId === item.id ? "Saving…" : "Save status"}
+                  </button>
+                  {item.applied_at && (
+                    <span className="text-xs text-[#718078]">Marked applied {new Date(item.applied_at).toLocaleDateString()}</span>
+                  )}
+                </div>
+                {item.notes && <p className="mt-3 whitespace-pre-line text-sm text-[#63736c]">Private notes: {item.notes}</p>}
+                <button
+                  type="button"
+                  onClick={() => void toggleHistory(item)}
+                  className="mt-4 text-sm font-semibold text-[#145b48] underline underline-offset-4"
+                >
+                  {expanded === item.id ? "Hide status history" : "View status history"}
+                </button>
+                {expanded === item.id && (
+                  <ol className="mt-3 space-y-3 border-l-2 border-[#dfe7df] pl-4">
+                    {(events[item.id] || []).map((event) => (
+                      <li key={event.id} className="text-sm">
+                        <p className="font-semibold capitalize">{event.new_status.replaceAll("_", " ")}</p>
+                        <p className="mt-0.5 text-xs text-[#718078]">{new Date(event.created_at).toLocaleString()}</p>
+                        {event.note && <p className="mt-1 text-[#63736c]">{event.note}</p>}
+                      </li>
+                    ))}
+                    {!events[item.id]?.length && <li className="text-sm text-[#63736c]">No status changes recorded yet.</li>}
+                  </ol>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <div className="mt-8 rounded-2xl border border-dashed border-[#cbd8ce] bg-white p-8 text-center">
+          <p className="font-semibold">No applications being tracked yet.</p>
+          <p className="mt-2 text-sm text-[#63736c]">Open an opportunity and choose Track application to get started.</p>
+          <Link href="/explore" className="mt-4 inline-flex text-sm font-semibold text-[#145b48]">Explore opportunities →</Link>
+        </div>
+      )}
+    </main>
+  );
+}
+
 export function SavedPage() {
   const { withSession } = useAuth();
   const [items, setItems] = useState<ResolvedBookmark[]>([]);
@@ -718,13 +934,15 @@ export function SavedPage() {
             }
             const record = await authenticatedApi.getOpportunity(item.entity_id);
             const base =
-              item.entity_type === "internship"
+              record.type === "internship"
                 ? "/internships"
-                : item.entity_type === "scholarship"
+                : record.type === "scholarship"
                   ? "/scholarships"
-                  : item.entity_type === "competition"
+                  : ["competition", "hackathon"].includes(record.type)
                     ? "/competitions"
-                    : "/jobs";
+                    : record.type === "job"
+                      ? "/jobs"
+                      : "/opportunities";
             return { ...item, title: record.title, href: `${base}/${record.slug}` };
           } catch {
             return item;
@@ -827,21 +1045,18 @@ export function OpportunityAccountActions({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const opportunity = item as Opportunity;
-  const bookmarkType = isExam
-    ? "exam"
-    : opportunity.type === "hackathon"
-      ? "competition"
-      : opportunity.type;
-  const canBookmark = ["exam", "job", "internship", "scholarship", "competition"].includes(
-    bookmarkType,
-  );
+  const bookmarkType = isExam ? "exam" : "opportunity";
+  const canBookmark = true;
 
   useEffect(() => {
     if (status !== "authenticated") return;
     void withSession((token) => authenticatedApi.listBookmarks(token))
       .then((bookmarks) => {
+        const legacyType = opportunity.type === "hackathon" ? "competition" : opportunity.type;
         const match = bookmarks.find(
-          (bookmark) => bookmark.entity_type === bookmarkType && bookmark.entity_id === item.id,
+          (bookmark) =>
+            bookmark.entity_id === item.id &&
+            (bookmark.entity_type === bookmarkType || (!isExam && bookmark.entity_type === legacyType)),
         );
         setBookmarkId(match?.id || "");
       })
@@ -859,7 +1074,7 @@ export function OpportunityAccountActions({
           ),
         );
     }
-  }, [bookmarkType, isExam, item.id, status, withSession]);
+  }, [bookmarkType, isExam, item.id, opportunity.type, status, withSession]);
 
   if (status !== "authenticated") {
     return (
@@ -935,7 +1150,7 @@ export function OpportunityAccountActions({
       >
         {busy === "bookmark" ? "Saving…" : bookmarkId ? "Saved" : "Save"}
       </button>
-      {!isExam && (
+      {!isExam && opportunity.status === "published" && (
         <button
           disabled={tracked || busy !== ""}
           onClick={() => void trackApplication()}
