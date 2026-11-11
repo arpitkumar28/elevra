@@ -1,7 +1,7 @@
 import uuid
 from enum import Enum
 
-from sqlalchemy import Boolean, Date, DateTime, Enum as SAEnum, ForeignKey, String, Text
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum as SAEnum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -35,6 +35,12 @@ class OpportunityStatus(str, Enum):
 
 class Opportunity(Base):
     __tablename__ = "opportunities"
+    __table_args__ = (
+        CheckConstraint(
+            "work_mode IS NULL OR work_mode IN ('remote', 'hybrid', 'on_site')",
+            name="ck_opportunities_work_mode",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
@@ -46,6 +52,7 @@ class Opportunity(Base):
     eligibility: Mapped[str | None] = mapped_column(Text, nullable=True)
     location: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     remote: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    work_mode: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
     application_start: Mapped[Date | None] = mapped_column(Date, nullable=True)
     application_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     source_name: Mapped[str | None] = mapped_column(String(255), nullable=True)

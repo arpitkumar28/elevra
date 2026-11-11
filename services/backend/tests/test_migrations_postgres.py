@@ -200,7 +200,7 @@ def test_fresh_postgres_pgvector_upgrade_matches_active_orm() -> None:
                     """
                 )
             ).all()
-        assert revisions == ["20261111_opportunity_workflow"]
+        assert revisions == ["20261111_opportunity_work_mode"]
         assert {name for name, enabled in rls_status if enabled} >= expected_tables
         assert all(enabled for _, enabled in rls_status)
     finally:

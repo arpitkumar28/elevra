@@ -33,4 +33,27 @@ def test_opportunity_mutation_authorization_and_validation(client, admin_headers
     assert client.patch(f"/api/v1/opportunities/{opportunity_id}", json={"title": "Updated Opportunity"}, headers=admin_headers).status_code == 200
     assert client.delete(f"/api/v1/opportunities/{opportunity_id}", headers=admin_headers).status_code == 204
     assert client.post("/api/v1/opportunities", json=opportunity_payload(slug="Bad slug", type="invalid"), headers=admin_headers).status_code == 422
+    assert client.post("/api/v1/opportunities", json=opportunity_payload(slug="invalid-work-mode", work_mode="flexible"), headers=admin_headers).status_code == 422
     assert client.get("/api/v1/opportunities?type=invalid").status_code == 422
+
+
+def test_opportunity_work_mode_filters_are_distinct_and_legacy_remote_is_supported(client, db):
+    db.add_all([
+        published_opportunity(title="Remote role", slug="remote-role", work_mode="remote", remote=True),
+        published_opportunity(title="Hybrid role", slug="hybrid-role", work_mode="hybrid", remote=False),
+        published_opportunity(title="On-site role", slug="on-site-role", work_mode="on_site", remote=False),
+    ])
+    db.commit()
+
+    for mode, expected_slug in (
+        ("remote", "remote-role"),
+        ("hybrid", "hybrid-role"),
+        ("on_site", "on-site-role"),
+    ):
+        response = client.get(f"/api/v1/opportunities?work_mode={mode}")
+        assert response.status_code == 200
+        assert [item["slug"] for item in response.json()["items"]] == [expected_slug]
+
+    legacy = client.get("/api/v1/opportunities?remote=true")
+    assert legacy.status_code == 200
+    assert [item["slug"] for item in legacy.json()["items"]] == ["remote-role"]
