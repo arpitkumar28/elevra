@@ -310,11 +310,30 @@ function Detail({
 }) {
   const isExam = kind === "exams",
     [item, setItem] = useState<Exam | Opportunity | null>(null),
+    [deadlinePassed, setDeadlinePassed] = useState(false),
     [error, setError] = useState("");
   useEffect(() => {
+    let active = true;
     (isExam ? apiClient.getExam(slug) : apiClient.getOpportunity(slug))
-      .then(setItem)
-      .catch((e: ApiError) => setError(e.message));
+      .then((value) => {
+        if (!active) return;
+        setItem(value);
+        if (!isExam) {
+          const opportunity = value as Opportunity;
+          setDeadlinePassed(
+            Boolean(
+              opportunity.deadline &&
+              new Date(`${opportunity.deadline}T23:59:59`).getTime() < Date.now()
+            )
+          );
+        }
+      })
+      .catch((e: ApiError) => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
   }, [isExam, slug]);
   if (error)
     return (
@@ -331,10 +350,7 @@ function Detail({
   const e = item as Exam,
     o = item as Opportunity,
     heading = isExam ? e.name : o.title;
-  const applicationClosed = !isExam && (
-    o.status === "closed" ||
-    (Boolean(o.deadline) && new Date(`${o.deadline}T23:59:59`).getTime() < Date.now())
-  );
+  const applicationClosed = !isExam && (o.status === "closed" || deadlinePassed);
   const rows = isExam
     ? [
         ["Conducting body", e.conducting_body],
