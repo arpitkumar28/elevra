@@ -1079,6 +1079,7 @@ export function OpportunityAccountActions({
   const { status, withSession } = useAuth();
   const [bookmarkId, setBookmarkId] = useState("");
   const [tracked, setTracked] = useState(false);
+  const [deadlinePassed, setDeadlinePassed] = useState(false);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -1087,6 +1088,13 @@ export function OpportunityAccountActions({
   const canBookmark = true;
 
   useEffect(() => {
+    setDeadlinePassed(
+      !isExam &&
+      Boolean(
+        opportunity.deadline &&
+        new Date(`${opportunity.deadline}T23:59:59`).getTime() < Date.now()
+      )
+    );
     if (status !== "authenticated") return;
     void withSession((token) => authenticatedApi.listBookmarks(token))
       .then((bookmarks) => {
@@ -1190,7 +1198,7 @@ export function OpportunityAccountActions({
       </button>
       {!isExam &&
         opportunity.status === "published" &&
-        (!opportunity.deadline || new Date(`${opportunity.deadline}T23:59:59`).getTime() >= Date.now()) && (
+        !deadlinePassed && (
         <button
           disabled={tracked || busy !== ""}
           onClick={() => void trackApplication()}
