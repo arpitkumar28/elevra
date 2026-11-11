@@ -53,6 +53,7 @@ def admin_overview(
         "total_applications": db.query(Application.id).count(),
         "total_students": db.query(User.id).filter(
             User.role == "student",
+            User.is_admin.is_(False),
             User.is_active.is_(True),
         ).count(),
         "recent_activity": [
