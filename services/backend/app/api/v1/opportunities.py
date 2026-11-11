@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from math import ceil
 from typing import Annotated
 from uuid import UUID
@@ -41,7 +41,10 @@ def list_opportunities(
 ):
     # Only published records appear in discovery. Draft, review, verified,
     # rejected, closed and archived records stay private to admin/history flows.
-    query = db.query(Opportunity).filter(Opportunity.status == OpportunityStatus.published)
+    query = db.query(Opportunity).filter(
+        Opportunity.status == OpportunityStatus.published,
+        or_(Opportunity.deadline.is_(None), Opportunity.deadline >= datetime.now(UTC).date()),
+    )
     if q:
         term = f"%{q.strip()}%"
         query = query.filter(or_(
@@ -70,7 +73,7 @@ def list_opportunities(
         if sort == "deadline_soonest"
         else (Opportunity.published_at.desc().nullslast(), Opportunity.created_at.desc())
     )
-    items = query.order_by(*ordering).offset((page - 1) * page_size).limit(page_size).all()
+    items = query.order_by(*ordering, Opportunity.id.asc()).offset((page - 1) * page_size).limit(page_size).all()
     return OpportunityPage(
         items=items,
         page=page,

@@ -697,6 +697,7 @@ export function ApplicationsPage() {
   const [items, setItems] = useState<Application[]>([]);
   const [events, setEvents] = useState<Record<string, ApplicationEvent[]>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
   const [draftStatuses, setDraftStatuses] = useState<Record<string, string>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -711,6 +712,7 @@ export function ApplicationsPage() {
       const result = await withSession((token) => authenticatedApi.listApplications(token));
       setItems(result);
       setDraftStatuses(Object.fromEntries(result.map((item) => [item.id, item.status])));
+      setDraftNotes(Object.fromEntries(result.map((item) => [item.id, item.notes || ""])));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load your application tracker.");
     } finally {
@@ -775,6 +777,24 @@ export function ApplicationsPage() {
       setMessage("Follow-up date saved.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to save follow-up date.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function updateNotes(item: Application) {
+    const value = draftNotes[item.id] ?? "";
+    setBusyId(item.id);
+    setError("");
+    setMessage("");
+    try {
+      const updated = await withSession((token) =>
+        authenticatedApi.updateApplication(item.id, { notes: value }, token),
+      );
+      setItems((current) => current.map((entry) => entry.id === item.id ? updated : entry));
+      setMessage("Private notes saved.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to save private notes.");
     } finally {
       setBusyId("");
     }
@@ -872,7 +892,25 @@ export function ApplicationsPage() {
                     <span className="text-xs text-[#718078]">Marked applied {new Date(item.applied_at).toLocaleDateString()}</span>
                   )}
                 </div>
-                {item.notes && <p className="mt-3 whitespace-pre-line text-sm text-[#63736c]">Private notes: {item.notes}</p>}
+                <label className="mt-3 block text-sm font-semibold">
+                  Private notes
+                  <textarea
+                    rows={3}
+                    value={draftNotes[item.id] ?? ""}
+                    disabled={busyId === item.id}
+                    onChange={(event) => setDraftNotes((current) => ({ ...current, [item.id]: event.target.value }))}
+                    placeholder="Keep your own preparation notes, contact details or next steps."
+                    className={inputClass}
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={busyId === item.id || (draftNotes[item.id] ?? "") === (item.notes ?? "")}
+                  onClick={() => void updateNotes(item)}
+                  className="mt-3 rounded-xl border border-[#cbd8ce] px-4 py-2.5 text-sm font-semibold text-[#145b48] disabled:opacity-50"
+                >
+                  {busyId === item.id ? "Saving…" : "Save private notes"}
+                </button>
                 <button
                   type="button"
                   onClick={() => void toggleHistory(item)}
@@ -1150,7 +1188,9 @@ export function OpportunityAccountActions({
       >
         {busy === "bookmark" ? "Saving…" : bookmarkId ? "Saved" : "Save"}
       </button>
-      {!isExam && opportunity.status === "published" && (
+      {!isExam &&
+        opportunity.status === "published" &&
+        (!opportunity.deadline || new Date(`${opportunity.deadline}T23:59:59`).getTime() >= Date.now()) && (
         <button
           disabled={tracked || busy !== ""}
           onClick={() => void trackApplication()}

@@ -331,6 +331,10 @@ function Detail({
   const e = item as Exam,
     o = item as Opportunity,
     heading = isExam ? e.name : o.title;
+  const applicationClosed = !isExam && (
+    o.status === "closed" ||
+    (Boolean(o.deadline) && new Date(`${o.deadline}T23:59:59`).getTime() < Date.now())
+  );
   const rows = isExam
     ? [
         ["Conducting body", e.conducting_body],
@@ -360,12 +364,12 @@ function Detail({
           <div className="flex flex-wrap gap-2">
             <Pill>{titleize(isExam ? e.category : o.type)}</Pill>
             {item.verified && <Pill green>✓ Verified source</Pill>}
-            {!isExam && o.status === "closed" && <Pill>Applications closed</Pill>}
+            {!isExam && applicationClosed && <Pill>Applications closed</Pill>}
           </div>
           <h1 className="mt-5 text-4xl font-bold">{heading}</h1>
           <p className="mt-2 text-slate-300">{isExam ? e.conducting_body : o.organization}</p>
           <div className="mt-6 flex flex-wrap gap-3">
-            {source && (isExam || o.status === "published") && (
+            {source && (isExam || (o.status === "published" && !applicationClosed)) && (
               <a
                 href={source}
                 target="_blank"
@@ -375,12 +379,12 @@ function Detail({
                 {isExam ? "Visit official website" : "Apply on official website"} ↗
               </a>
             )}
-            {!isExam && o.status === "closed" && (
+            {!isExam && applicationClosed && (
               <span className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500">
                 Applications are closed
               </span>
             )}
-            <OpportunityAccountActions item={item} isExam={isExam} />
+            {!isExam && applicationClosed ? null : <OpportunityAccountActions item={item} isExam={isExam} />}
             <ShareControl title={heading} />
           </div>
         </header>
