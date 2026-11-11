@@ -66,6 +66,14 @@ def test_student_can_track_published_opportunity_and_view_status_history(client,
     assert [event["new_status"] for event in events.json()] == ["saved", "applied"]
     assert events.json()[-1]["note"] == "Submitted on the employer website."
 
+    saved_notes = client.patch(
+        f"/api/v1/applications/{application['id']}",
+        headers=student_headers,
+        json={"notes": "Follow up with the recruiter next week."},
+    )
+    assert saved_notes.status_code == 200
+    assert saved_notes.json()["notes"] == "Follow up with the recruiter next week."
+
     invalid = client.patch(
         f"/api/v1/applications/{application['id']}",
         headers=student_headers,
@@ -110,3 +118,37 @@ def test_student_cannot_track_unpublished_or_access_another_users_history(
         headers=admin_headers,
     )
     assert denied.status_code == 404
+
+
+def test_expired_opportunity_is_not_discoverable_or_trackable(client, student_headers, db):
+    from datetime import UTC, datetime, timedelta
+
+    opportunity = Opportunity(
+        title="Expired internship",
+        slug="expired-internship",
+        type=OpportunityType.internship,
+        organization="Elevra",
+        application_url="https://example.com/apply",
+        source_name="Elevra Careers",
+        source_url="https://example.com/source",
+        status=OpportunityStatus.published,
+        verified=True,
+        deadline=datetime.now(UTC).date() - timedelta(days=1),
+    )
+    db.add(opportunity)
+    db.commit()
+    db.refresh(opportunity)
+
+    listing = client.get("/api/v1/opportunities")
+    assert listing.status_code == 200
+    assert all(item["id"] != opportunity.id for item in listing.json()["items"])
+
+    detail = client.get(f"/api/v1/opportunities/{opportunity.slug}")
+    assert detail.status_code == 200
+
+    tracked = client.post(
+        "/api/v1/applications",
+        headers=student_headers,
+        json={"opportunity_id": opportunity.id},
+    )
+    assert tracked.status_code == 409

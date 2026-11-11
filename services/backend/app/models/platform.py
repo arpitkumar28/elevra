@@ -3,7 +3,7 @@
 import uuid
 from datetime import UTC, date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -114,9 +114,18 @@ class Bookmark(Base):
 
 class Application(Base):
     __tablename__ = "applications"
+    __table_args__ = (
+        Index(
+            "uq_applications_user_opportunity",
+            "user_id",
+            "opportunity_id",
+            unique=True,
+            postgresql_where=text("opportunity_id IS NOT NULL"),
+        ),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_id)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    opportunity_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    opportunity_id: Mapped[str | None] = mapped_column(ForeignKey("opportunities.id", ondelete="RESTRICT"), index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     organization: Mapped[str | None] = mapped_column(String(255))
     external_url: Mapped[str | None] = mapped_column(String(2048))
@@ -130,6 +139,9 @@ class Application(Base):
 
 class ApplicationEvent(Base):
     __tablename__ = "application_events"
+    __table_args__ = (
+        Index("ix_application_events_application_created_at", "application_id", "created_at"),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_id)
     application_id: Mapped[str] = mapped_column(ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)

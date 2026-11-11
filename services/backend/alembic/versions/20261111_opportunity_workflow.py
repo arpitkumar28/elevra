@@ -41,6 +41,59 @@ def upgrade() -> None:
     op.add_column("applications", sa.Column("applied_at", sa.DateTime(timezone=True), nullable=True))
     op.add_column("applications", sa.Column("follow_up_date", sa.Date(), nullable=True))
 
+    # Refuse to add referential/uniqueness guarantees if legacy tracker data
+    # already violates them. Operators must resolve these rows explicitly.
+    connection = op.get_bind()
+    duplicate = connection.execute(
+        sa.text(
+            """
+            SELECT user_id, opportunity_id
+            FROM applications
+            WHERE opportunity_id IS NOT NULL
+            GROUP BY user_id, opportunity_id
+            HAVING COUNT(*) > 1
+            LIMIT 1
+            """
+        )
+    ).first()
+    if duplicate:
+        raise RuntimeError(
+            "Cannot add the application uniqueness index: duplicate student/opportunity tracker rows exist"
+        )
+
+    orphan = connection.execute(
+        sa.text(
+            """
+            SELECT applications.id
+            FROM applications
+            LEFT JOIN opportunities ON opportunities.id = applications.opportunity_id
+            WHERE applications.opportunity_id IS NOT NULL
+              AND opportunities.id IS NULL
+            LIMIT 1
+            """
+        )
+    ).first()
+    if orphan:
+        raise RuntimeError(
+            "Cannot add the opportunity foreign key: application tracker rows reference missing opportunities"
+        )
+
+    op.create_foreign_key(
+        "fk_applications_opportunity_id_opportunities",
+        "applications",
+        "opportunities",
+        ["opportunity_id"],
+        ["id"],
+        ondelete="RESTRICT",
+    )
+    op.create_index(
+        "uq_applications_user_opportunity",
+        "applications",
+        ["user_id", "opportunity_id"],
+        unique=True,
+        postgresql_where=sa.text("opportunity_id IS NOT NULL"),
+    )
+
     op.create_table(
         "application_events",
         sa.Column("id", sa.String(length=36), primary_key=True, nullable=False),

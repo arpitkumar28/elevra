@@ -114,6 +114,23 @@ export type TestSummary = {
 };
 export type AdminContentKind = "exams" | "opportunities" | "courses" | "current-affairs" | "tests";
 export type AdminContentPage<T> = Page<T>;
+export type AdminOverview = {
+  published_opportunities: number;
+  pending_review_opportunities: number;
+  draft_opportunities: number;
+  closing_soon_opportunities: number;
+  total_applications: number;
+  total_students: number;
+  recent_activity: Array<{
+    id: string;
+    action: string;
+    entity: string;
+    entity_id?: string | null;
+    actor_id?: string | null;
+    created_at: string;
+  }>;
+  generated_at: string;
+};
 export type AdminQueueItem = {
   kind: AdminContentKind;
   id: string;
@@ -462,6 +479,10 @@ export function createApiClient({ baseUrl, fetch: fetcher = fetch }: ApiClientOp
       request<T>(`/admin/content/${kind}/${encodeURIComponent(id)}/actions/${action}`, {
         method: "POST",
         body: data ? JSON.stringify(data) : undefined,
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    getAdminOverview: (token: string) =>
+      request<AdminOverview>("/admin/overview", {
         headers: { Authorization: `Bearer ${token}` },
       }),
     listAdminQueue: (params: Record<string, string | number | undefined>, token: string) =>
