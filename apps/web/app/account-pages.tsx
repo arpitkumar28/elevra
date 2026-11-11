@@ -1188,7 +1188,9 @@ export function OpportunityAccountActions({
       >
         {busy === "bookmark" ? "Saving…" : bookmarkId ? "Saved" : "Save"}
       </button>
-      {!isExam && opportunity.status === "published" && (
+      {!isExam &&
+        opportunity.status === "published" &&
+        (!opportunity.deadline || new Date(`${opportunity.deadline}T23:59:59`).getTime() >= Date.now()) && (
         <button
           disabled={tracked || busy !== ""}
           onClick={() => void trackApplication()}
