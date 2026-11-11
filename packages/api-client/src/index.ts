@@ -28,6 +28,7 @@ export type Opportunity = {
   eligibility?: string;
   location?: string;
   remote?: boolean;
+  work_mode?: "remote" | "hybrid" | "on_site" | null;
   application_start?: string;
   deadline?: string;
   application_url?: string;
