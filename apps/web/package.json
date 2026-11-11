@@ -13,6 +13,7 @@
   "dependencies": {
     "@elevra/types": "workspace:*",
     "@elevra/api-client": "workspace:*",
+    "@elevra/shared": "workspace:*",
     "@elevra/ui": "workspace:*",
     "next": "16.4.6",
     "react": "19.2.8",

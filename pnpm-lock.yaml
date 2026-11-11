@@ -58,6 +58,12 @@ importers:
       '@elevra/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@elevra/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@elevra/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       lucide-react:
         specifier: ^0.468.0
         version: 0.468.0(react@19.2.8)
@@ -104,6 +110,9 @@ importers:
       '@elevra/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@elevra/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@tanstack/react-query':
         specifier: ^5.62.11
         version: 5.101.4(react@19.2.8)
@@ -150,6 +159,9 @@ importers:
       '@elevra/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@elevra/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@elevra/types':
         specifier: workspace:*
         version: link:../../packages/types
