@@ -91,20 +91,67 @@ def test_exam_admin_lifecycle_filters_public_visibility_and_audit(client, admin_
     assert db.query(AuditLog).filter(AuditLog.entity == "exam").count() == 4
 
 
-def test_opportunity_admin_lifecycle_and_student_record_safe_delete(client, admin_headers, db):
+def test_opportunity_admin_review_publish_close_lifecycle(client, admin_headers, db):
     created = _request(client, "POST", "/opportunities", headers=admin_headers, json={
-        "title": "Software internship", "slug": "software-internship", "type": "internship",
-        "organization": "Elevra", "application_url": "https://example.com/apply",
+        "title": "Software internship",
+        "slug": "software-internship",
+        "type": "internship",
+        "organization": "Elevra",
+        "summary": "A paid software internship opportunity.",
+        "description": "Work with the platform engineering team on production software.",
+        "application_url": "https://example.com/apply",
+        "source_name": "Elevra Careers",
+        "source_url": "https://example.com/source",
     })
     assert created.status_code == 201, created.text
     opportunity = created.json()
     assert opportunity["status"] == "draft"
     assert client.get("/api/v1/opportunities").json()["total"] == 0
-    assert _request(client, "PATCH", f"/opportunities/{opportunity['id']}", headers=admin_headers, json={"type": "job"}).status_code == 200
-    published = _request(client, "POST", f"/opportunities/{opportunity['id']}/actions/publish", headers=admin_headers)
-    assert published.status_code == 200 and client.get("/api/v1/opportunities").json()["total"] == 1
-    closed = _request(client, "POST", f"/opportunities/{opportunity['id']}/actions/close", headers=admin_headers)
+
+    submitted = _request(
+        client, "POST", f"/opportunities/{opportunity['id']}/actions/submit",
+        headers=admin_headers,
+    )
+    assert submitted.status_code == 200 and submitted.json()["status"] == "pending_review"
+    queue = _request(client, "GET", "/queue?status=pending_review", headers=admin_headers).json()
+    assert any(item["id"] == opportunity["id"] and item["kind"] == "opportunities" for item in queue["items"])
+
+    changed = _request(
+        client, "POST", f"/opportunities/{opportunity['id']}/actions/request-changes",
+        headers=admin_headers,
+        json={"review_note": "Please add the official eligibility details."},
+    )
+    assert changed.status_code == 200
+    assert changed.json()["status"] == "draft"
+    assert changed.json()["review_note"] == "Please add the official eligibility details."
+
+    resubmitted = _request(
+        client, "POST", f"/opportunities/{opportunity['id']}/actions/submit",
+        headers=admin_headers,
+    )
+    assert resubmitted.status_code == 200 and resubmitted.json()["status"] == "pending_review"
+    approved = _request(
+        client, "POST", f"/opportunities/{opportunity['id']}/actions/approve",
+        headers=admin_headers,
+    )
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "verified"
+    assert approved.json()["verified"] is True
+    assert approved.json()["source_checked_at"]
+
+    published = _request(
+        client, "POST", f"/opportunities/{opportunity['id']}/actions/publish",
+        headers=admin_headers,
+    )
+    assert published.status_code == 200 and published.json()["status"] == "published"
+    assert client.get("/api/v1/opportunities").json()["total"] == 1
+    closed = _request(
+        client, "POST", f"/opportunities/{opportunity['id']}/actions/close",
+        headers=admin_headers,
+    )
     assert closed.status_code == 200 and closed.json()["status"] == "closed"
+    assert client.get("/api/v1/opportunities").json()["total"] == 0
+    assert client.get(f"/api/v1/opportunities/{opportunity['id']}").status_code == 200
 
     admin_user = db.query(User).filter(User.email == "admin@example.com").one()
     db.add(Bookmark(user_id=admin_user.id, entity_type="internship", entity_id=opportunity["id"]))
@@ -112,8 +159,21 @@ def test_opportunity_admin_lifecycle_and_student_record_safe_delete(client, admi
     db.commit()
     deleted = client.delete(f"/api/v1/opportunities/{opportunity['id']}", headers=admin_headers)
     assert deleted.status_code == 409
-    assert _request(client, "GET", f"/opportunities/{opportunity['id']}", headers=admin_headers).status_code == 200
-    assert db.query(AuditLog).filter(AuditLog.entity == "opportunity").count() >= 3
+    assert db.query(AuditLog).filter(AuditLog.entity == "opportunity").count() >= 5
+
+
+def test_opportunity_submission_requires_source_and_application_details(client, admin_headers):
+    created = _request(client, "POST", "/opportunities", headers=admin_headers, json={
+        "title": "Incomplete listing",
+        "slug": "incomplete-listing",
+        "type": "job",
+    })
+    assert created.status_code == 201, created.text
+    response = _request(
+        client, "POST", f"/opportunities/{created.json()['id']}/actions/submit",
+        headers=admin_headers,
+    )
+    assert response.status_code == 422
 
 
 def test_course_and_current_affair_review_workflows_use_persisted_queue(client, admin_headers):

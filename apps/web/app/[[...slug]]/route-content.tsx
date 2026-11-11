@@ -12,6 +12,7 @@ import {
 } from "@elevra/api-client";
 import { AuthForm, ProtectedContent } from "../auth-components";
 import {
+  ApplicationsPage,
   DashboardPage,
   NotificationsPage,
   OpportunityAccountActions,
@@ -96,14 +97,34 @@ function Listing({
     [error, setError] = useState(""),
     [q, setQ] = useState(""),
     [filter, setFilter] = useState(defaultType || ""),
+    [location, setLocation] = useState(""),
+    [remote, setRemote] = useState(""),
+    [verifiedOnly, setVerifiedOnly] = useState(false),
+    [deadlineWindow, setDeadlineWindow] = useState(""),
+    [sort, setSort] = useState("newest"),
     [page, setPage] = useState(1),
     [pages, setPages] = useState(1);
+
   const load = useCallback(() => {
     setLoading(true);
     setError("");
-    const params: Record<string, string | number> = { page, page_size: 12 };
-    if (q) params.q = q;
+    const params: Record<string, string | number | boolean | undefined> = { page, page_size: 12 };
+    if (q.trim()) params.q = q.trim();
     if (filter) params[isExam ? "category" : "type"] = filter;
+    if (!isExam) {
+      if (location.trim()) params.location = location.trim();
+      if (remote) params.remote = remote === "remote";
+      if (verifiedOnly) params.verified = true;
+      params.sort = sort;
+      if (deadlineWindow) {
+        const today = new Date();
+        const todayIso = today.toISOString().slice(0, 10);
+        const days = Number(deadlineWindow);
+        const end = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
+        params.deadline_after = todayIso;
+        params.deadline_before = end.toISOString().slice(0, 10);
+      }
+    }
     (isExam ? apiClient.listExams(params) : apiClient.listOpportunities(params))
       .then((data) => {
         setItems(data.items);
@@ -111,10 +132,12 @@ function Listing({
       })
       .catch((e: ApiError) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [filter, isExam, page, q]);
+  }, [deadlineWindow, filter, isExam, location, page, q, remote, sort, verifiedOnly]);
+
   useEffect(() => {
     void load();
   }, [load]);
+
   const filters = isExam ? examCategories : opportunityTypes;
   return (
     <main className="mx-auto max-w-7xl px-5 py-10">
@@ -125,70 +148,110 @@ function Listing({
       <p className="mt-3 max-w-2xl text-slate-600">
         Verified, official information—organized to help you make a confident decision.
       </p>
-      <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row">
-        <label className="sr-only" htmlFor="search">
+      <div className="mt-8 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 lg:grid-cols-4">
+        <label className="text-sm font-semibold lg:col-span-2">
           Search
+          <input
+            value={q}
+            onChange={(event) => { setPage(1); setQ(event.target.value); }}
+            placeholder={`Search ${kind}, organizations, or categories`}
+            className="mt-1 w-full rounded-xl border border-[#d8e1da] px-4 py-3 outline-none focus:ring-2 focus:ring-[#d5e7cf]"
+          />
         </label>
-        <input
-          id="search"
-          value={q}
-          onChange={(e) => {
-            setPage(1);
-            setQ(e.target.value);
-          }}
-          placeholder={`Search ${kind}, organizations, or categories`}
-          className="min-w-0 flex-1 rounded-xl border border-[#d8e1da] px-4 py-3 outline-none focus:ring-2 focus:ring-[#d5e7cf]"
-        />
-        <select
-          aria-label="Filter results"
-          value={filter}
-          onChange={(e) => {
-            setPage(1);
-            setFilter(e.target.value);
-          }}
-          className="rounded-xl border border-slate-300 bg-white px-3 py-3"
-        >
-          <option value="">All {isExam ? "categories" : "types"}</option>
-          {filters.map((x) => (
-            <option key={x} value={x}>
-              {titleize(x)}
-            </option>
-          ))}
-        </select>
+        <label className="text-sm font-semibold">
+          {isExam ? "Exam category" : "Opportunity type"}
+          <select
+            aria-label="Filter results"
+            value={filter}
+            onChange={(event) => { setPage(1); setFilter(event.target.value); }}
+            className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-3"
+          >
+            <option value="">All {isExam ? "categories" : "types"}</option>
+            {filters.map((value) => <option key={value} value={value}>{titleize(value)}</option>)}
+          </select>
+        </label>
+        {!isExam && (
+          <>
+            <label className="text-sm font-semibold">
+              Location
+              <input
+                value={location}
+                onChange={(event) => { setPage(1); setLocation(event.target.value); }}
+                placeholder="City, state or country"
+                className="mt-1 w-full rounded-xl border border-[#d8e1da] px-3 py-3"
+              />
+            </label>
+            <label className="text-sm font-semibold">
+              Work mode
+              <select
+                value={remote}
+                onChange={(event) => { setPage(1); setRemote(event.target.value); }}
+                className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-3"
+              >
+                <option value="">All work modes</option>
+                <option value="remote">Remote</option>
+                <option value="onsite">On-site / hybrid</option>
+              </select>
+            </label>
+            <label className="text-sm font-semibold">
+              Deadline
+              <select
+                value={deadlineWindow}
+                onChange={(event) => { setPage(1); setDeadlineWindow(event.target.value); }}
+                className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-3"
+              >
+                <option value="">Any deadline</option>
+                <option value="7">Closing in 7 days</option>
+                <option value="30">Closing in 30 days</option>
+              </select>
+            </label>
+            <label className="text-sm font-semibold">
+              Sort by
+              <select
+                value={sort}
+                onChange={(event) => { setPage(1); setSort(event.target.value); }}
+                className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-3"
+              >
+                <option value="newest">Newest first</option>
+                <option value="deadline_soonest">Deadline soonest</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 self-end rounded-xl border border-[#d8e1da] px-3 py-3 text-sm font-semibold">
+              <input
+                type="checkbox"
+                checked={verifiedOnly}
+                onChange={(event) => { setPage(1); setVerifiedOnly(event.target.checked); }}
+                className="h-4 w-4 accent-[#145b48]"
+              />
+              Verified only
+            </label>
+          </>
+        )}
       </div>
       <div className="mt-7 flex flex-wrap gap-2">
-        {filters.map((x) => (
+        {filters.map((value) => (
           <button
-            key={x}
-            onClick={() => {
-              setPage(1);
-              setFilter(filter === x ? "" : x);
-            }}
-            className={`rounded-full border px-3 py-1.5 text-sm transition ${filter === x ? "border-[#a9c19a] bg-[#eef4e8] text-[#28483b]" : "border-slate-200 bg-white hover:border-[#b7c9b8]"}`}
+            key={value}
+            onClick={() => { setPage(1); setFilter(filter === value ? "" : value); }}
+            className={`rounded-full border px-3 py-1.5 text-sm transition ${filter === value ? "border-[#a9c19a] bg-[#eef4e8] text-[#28483b]" : "border-slate-200 bg-white hover:border-[#b7c9b8]"}`}
           >
-            {titleize(x)}
+            {titleize(value)}
           </button>
         ))}
       </div>
       <section aria-live="polite" className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {loading ? (
-          Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="h-60 animate-pulse rounded-2xl bg-slate-200" />
-          ))
+          Array.from({ length: 6 }, (_, index) => <div key={index} className="h-60 animate-pulse rounded-2xl bg-slate-200" />)
         ) : error ? (
-          <div className="md:col-span-2 lg:col-span-3">
-            <State message={error} retry={load} />
-          </div>
+          <div className="md:col-span-2 lg:col-span-3"><State message={error} retry={load} /></div>
         ) : !items.length ? (
-          <div className="md:col-span-2 lg:col-span-3">
-            <State message="No results match those filters. Try a broader search." />
-          </div>
+          <div className="md:col-span-2 lg:col-span-3"><State message="No results match those filters. Try a broader search." /></div>
         ) : (
           items.map((item) => {
-            const e = item as Exam,
-              o = item as Opportunity,
-              label = isExam ? e.name : o.title,
-              slug = item.slug;
+            const exam = item as Exam;
+            const opportunity = item as Opportunity;
+            const label = isExam ? exam.name : opportunity.title;
+            const slug = item.slug;
             return (
               <Link
                 href={`${basePath || `/${kind}`}/${slug}` as "/exams"}
@@ -196,27 +259,28 @@ function Listing({
                 className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div className="flex justify-between gap-3">
-                  <Pill>{titleize(isExam ? e.category : o.type)}</Pill>
+                  <Pill>{titleize(isExam ? exam.category : opportunity.type)}</Pill>
                   {item.verified && <Pill green>✓ Verified</Pill>}
                 </div>
                 <h2 className="mt-5 text-lg font-bold group-hover:text-[#155b48]">{label}</h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  {isExam
-                    ? e.conducting_body || "Conducting body to be announced"
-                    : o.organization || "Organization to be announced"}
+                  {isExam ? exam.conducting_body || "Conducting body to be announced" : opportunity.organization || "Organization to be announced"}
                 </p>
+                {!isExam && opportunity.summary && (
+                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{opportunity.summary}</p>
+                )}
                 <div className="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-600">
                   {isExam ? (
                     <>
-                      <b>Next date:</b> {date(e.exam_date || e.application_deadline)}
+                      <b>Next date:</b> {date(exam.exam_date || exam.application_deadline)}
                       <br />
-                      <b>Deadline:</b> {date(e.application_deadline)}
+                      <b>Deadline:</b> {date(exam.application_deadline)}
                     </>
                   ) : (
                     <>
-                      <b>{o.remote ? "Remote" : o.location || "Location to be announced"}</b>
+                      <b>{opportunity.remote ? "Remote" : opportunity.location || "Location to be announced"}</b>
                       <br />
-                      <b>Deadline:</b> {date(o.deadline)}
+                      <b>Deadline:</b> {date(opportunity.deadline)}
                     </>
                   )}
                 </div>
@@ -227,23 +291,9 @@ function Listing({
       </section>
       {!loading && !error && pages > 1 && (
         <nav aria-label="Pagination" className="mt-8 flex items-center justify-center gap-4">
-          <button
-            disabled={page === 1}
-            onClick={() => setPage(page - 1)}
-            className="rounded-lg border px-4 py-2 disabled:opacity-40"
-          >
-            Previous
-          </button>
-          <span>
-            Page {page} of {pages}
-          </span>
-          <button
-            disabled={page === pages}
-            onClick={() => setPage(page + 1)}
-            className="rounded-lg border px-4 py-2 disabled:opacity-40"
-          >
-            Next
-          </button>
+          <button disabled={page === 1} onClick={() => setPage(page - 1)} className="rounded-lg border px-4 py-2 disabled:opacity-40">Previous</button>
+          <span>Page {page} of {pages}</span>
+          <button disabled={page === pages} onClick={() => setPage(page + 1)} className="rounded-lg border px-4 py-2 disabled:opacity-40">Next</button>
         </nav>
       )}
     </main>
@@ -291,8 +341,10 @@ function Detail({
     : [
         ["Organization", o.organization],
         ["Location", o.remote ? "Remote" : o.location],
+        ["Applications open", date(o.application_start)],
         ["Deadline", date(o.deadline)],
         ["Type", titleize(o.type)],
+        ["Source checked", date(o.source_checked_at)],
       ];
   const source = isExam ? e.official_website : o.application_url;
   return (
@@ -308,11 +360,12 @@ function Detail({
           <div className="flex flex-wrap gap-2">
             <Pill>{titleize(isExam ? e.category : o.type)}</Pill>
             {item.verified && <Pill green>✓ Verified source</Pill>}
+            {!isExam && o.status === "closed" && <Pill>Applications closed</Pill>}
           </div>
           <h1 className="mt-5 text-4xl font-bold">{heading}</h1>
           <p className="mt-2 text-slate-300">{isExam ? e.conducting_body : o.organization}</p>
           <div className="mt-6 flex flex-wrap gap-3">
-            {source && (
+            {source && (isExam || o.status === "published") && (
               <a
                 href={source}
                 target="_blank"
@@ -321,6 +374,11 @@ function Detail({
               >
                 {isExam ? "Visit official website" : "Apply on official website"} ↗
               </a>
+            )}
+            {!isExam && o.status === "closed" && (
+              <span className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-500">
+                Applications are closed
+              </span>
             )}
             <OpportunityAccountActions item={item} isExam={isExam} />
             <ShareControl title={heading} />
@@ -854,6 +912,12 @@ export default function RoutePage({ params }: { params: { slug?: string[] } }) {
     return (
       <ProtectedContent>
         <NotificationsPage />
+      </ProtectedContent>
+    );
+  if (parts[0] === "applications")
+    return (
+      <ProtectedContent>
+        <ApplicationsPage />
       </ProtectedContent>
     );
   if (parts[0] === "career")
