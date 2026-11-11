@@ -125,7 +125,13 @@ const fields: Record<AdminContentKind, Field[]> = {
     { name: "description", label: "Description", kind: "textarea" },
     { name: "eligibility", label: "Eligibility", kind: "textarea" },
     { name: "location", label: "Location", maxLength: 255 },
-    { name: "remote", label: "Remote opportunity", kind: "checkbox" },
+    {
+      name: "work_mode",
+      label: "Work mode",
+      kind: "select",
+      options: ["remote", "hybrid", "on_site"],
+      hint: "Leave blank when this opportunity does not have a work-mode requirement.",
+    },
     { name: "application_start", label: "Applications open", kind: "date" },
     { name: "deadline", label: "Application deadline", kind: "date" },
     { name: "application_url", label: "Application URL", kind: "url", required: true },
@@ -1702,7 +1708,10 @@ function defaultForm(kind: AdminContentKind): Record<string, string | boolean> {
 function toForm(kind: AdminContentKind, item: ContentRow): Record<string, string | boolean> {
   return Object.fromEntries(
     fields[kind].map((field) => {
-      const value = item[field.name];
+      const value =
+        field.name === "work_mode" && !item.work_mode && item.remote
+          ? "remote"
+          : item[field.name];
       if (field.kind === "checkbox") return [field.name, Boolean(value)];
       if (field.name === "skills")
         return [field.name, Array.isArray(value) ? value.join(", ") : ""];
