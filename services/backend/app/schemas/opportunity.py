@@ -18,6 +18,12 @@ class OpportunityType(str, Enum):
     other = "other"
 
 
+class OpportunityWorkMode(str, Enum):
+    remote = "remote"
+    hybrid = "hybrid"
+    on_site = "on_site"
+
+
 class OpportunityStatus(str, Enum):
     draft = "draft"
     published = "published"
@@ -38,6 +44,7 @@ class OpportunityBase(BaseModel):
     eligibility: Optional[str] = None
     location: Optional[constr(strip_whitespace=True, max_length=255)] = None
     remote: bool = False
+    work_mode: Optional[OpportunityWorkMode] = None
     application_start: Optional[date] = None
     application_url: Optional[HttpUrl] = None
     source_name: Optional[constr(strip_whitespace=True, max_length=255)] = None
@@ -58,6 +65,7 @@ class OpportunityUpdate(BaseModel):
     eligibility: Optional[str] = None
     location: Optional[constr(strip_whitespace=True, max_length=255)] = None
     remote: Optional[bool] = None
+    work_mode: Optional[OpportunityWorkMode] = None
     application_start: Optional[date] = None
     application_url: Optional[HttpUrl] = None
     source_name: Optional[constr(strip_whitespace=True, max_length=255)] = None

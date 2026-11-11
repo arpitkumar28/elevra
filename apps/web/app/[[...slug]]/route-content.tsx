@@ -44,6 +44,10 @@ const opportunityTypes = [
   "hackathon",
   "competition",
   "fellowship",
+  "research",
+  "bootcamp",
+  "event",
+  "other",
 ];
 const date = (value?: string) =>
   value
@@ -98,14 +102,29 @@ function Listing({
     [q, setQ] = useState(""),
     [filter, setFilter] = useState(defaultType || ""),
     [location, setLocation] = useState(""),
-    [remote, setRemote] = useState(""),
+    [workMode, setWorkMode] = useState(""),
     [verifiedOnly, setVerifiedOnly] = useState(false),
     [deadlineWindow, setDeadlineWindow] = useState(""),
     [sort, setSort] = useState("newest"),
     [page, setPage] = useState(1),
-    [pages, setPages] = useState(1);
+    [pages, setPages] = useState(1),
+    [filtersHydrated, setFiltersHydrated] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setQ(params.get("q") || "");
+    setFilter(params.get(isExam ? "category" : "type") || defaultType || "");
+    setLocation(params.get("location") || "");
+    setWorkMode(params.get("work_mode") || (params.get("remote") === "true" ? "remote" : ""));
+    setVerifiedOnly(params.get("verified") === "true");
+    setDeadlineWindow(params.get("deadline_window") || "");
+    setSort(params.get("sort") || "newest");
+    setPage(Math.max(1, Number(params.get("page") || "1") || 1));
+    setFiltersHydrated(true);
+  }, [defaultType, isExam]);
 
   const load = useCallback(() => {
+    if (!filtersHydrated) return;
     setLoading(true);
     setError("");
     const params: Record<string, string | number | boolean | undefined> = { page, page_size: 12 };
@@ -113,7 +132,7 @@ function Listing({
     if (filter) params[isExam ? "category" : "type"] = filter;
     if (!isExam) {
       if (location.trim()) params.location = location.trim();
-      if (remote) params.remote = remote === "remote";
+      if (workMode) params.work_mode = workMode;
       if (verifiedOnly) params.verified = true;
       params.sort = sort;
       if (deadlineWindow) {
@@ -132,11 +151,32 @@ function Listing({
       })
       .catch((e: ApiError) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [deadlineWindow, filter, isExam, location, page, q, remote, sort, verifiedOnly]);
+  }, [deadlineWindow, filter, filtersHydrated, isExam, location, page, q, sort, verifiedOnly, workMode]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!filtersHydrated) return;
+    const params = new URLSearchParams();
+    if (q.trim()) params.set("q", q.trim());
+    if (filter) params.set(isExam ? "category" : "type", filter);
+    if (!isExam) {
+      if (location.trim()) params.set("location", location.trim());
+      if (workMode) params.set("work_mode", workMode);
+      if (verifiedOnly) params.set("verified", "true");
+      if (deadlineWindow) params.set("deadline_window", deadlineWindow);
+      if (sort !== "newest") params.set("sort", sort);
+    }
+    if (page > 1) params.set("page", String(page));
+    const queryString = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${queryString ? `?${queryString}` : ""}${window.location.hash}`,
+    );
+  }, [deadlineWindow, filter, filtersHydrated, isExam, location, page, q, sort, verifiedOnly, workMode]);
 
   const filters = isExam ? examCategories : opportunityTypes;
   return (
@@ -184,13 +224,14 @@ function Listing({
             <label className="text-sm font-semibold">
               Work mode
               <select
-                value={remote}
-                onChange={(event) => { setPage(1); setRemote(event.target.value); }}
+                value={workMode}
+                onChange={(event) => { setPage(1); setWorkMode(event.target.value); }}
                 className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-3"
               >
                 <option value="">All work modes</option>
                 <option value="remote">Remote</option>
-                <option value="onsite">On-site / hybrid</option>
+                <option value="hybrid">Hybrid</option>
+                <option value="on_site">On-site</option>
               </select>
             </label>
             <label className="text-sm font-semibold">
@@ -278,7 +319,13 @@ function Listing({
                     </>
                   ) : (
                     <>
-                      <b>{opportunity.remote ? "Remote" : opportunity.location || "Location to be announced"}</b>
+                      <b>
+                        {opportunity.work_mode
+                          ? titleize(opportunity.work_mode)
+                          : opportunity.remote
+                            ? "Remote"
+                            : opportunity.location || "Work mode not specified"}
+                      </b>
                       <br />
                       <b>Deadline:</b> {date(opportunity.deadline)}
                     </>
@@ -360,7 +407,8 @@ function Detail({
       ]
     : [
         ["Organization", o.organization],
-        ["Location", o.remote ? "Remote" : o.location],
+        ["Location", o.location],
+        ["Work mode", o.work_mode ? titleize(o.work_mode) : o.remote ? "Remote" : "Not specified"],
         ["Applications open", date(o.application_start)],
         ["Deadline", date(o.deadline)],
         ["Type", titleize(o.type)],

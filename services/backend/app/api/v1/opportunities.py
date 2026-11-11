@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.opportunity import Opportunity, OpportunityStatus, OpportunityType
 from app.models.platform import Application, Bookmark
-from app.schemas.opportunity import OpportunityCreate, OpportunityPage, OpportunityResponse, OpportunityUpdate
+from app.schemas.opportunity import OpportunityCreate, OpportunityPage, OpportunityResponse, OpportunityUpdate, OpportunityWorkMode
 from app.services.audit import record_audit
 from app.services.auth import require_admin
 
@@ -22,6 +22,14 @@ def _opportunity_values(payload: OpportunityCreate | OpportunityUpdate, *, parti
     for field in ("application_url", "source_url"):
         if values.get(field) is not None:
             values[field] = str(values[field])
+    work_mode = values.get("work_mode")
+    if work_mode is not None:
+        work_mode = work_mode.value if hasattr(work_mode, "value") else str(work_mode)
+        values["work_mode"] = work_mode
+        values["remote"] = work_mode == "remote"
+    elif "remote" in values:
+        # Keep the legacy boolean contract available to older clients.
+        values["work_mode"] = "remote" if values["remote"] else None
     return values
 
 
@@ -34,6 +42,7 @@ def list_opportunities(
     type: OpportunityType | None = None,
     location: str | None = Query(None, min_length=1, max_length=255),
     remote: bool | None = None,
+    work_mode: OpportunityWorkMode | None = None,
     verified: bool | None = None,
     deadline_after: date | None = None,
     deadline_before: date | None = None,
@@ -60,6 +69,8 @@ def list_opportunities(
         query = query.filter(Opportunity.location.ilike(f"%{location.strip()}%"))
     if remote is not None:
         query = query.filter(Opportunity.remote == remote)
+    if work_mode is not None:
+        query = query.filter(Opportunity.work_mode == work_mode.value)
     if verified is not None:
         query = query.filter(Opportunity.verified == verified)
     if deadline_after:
