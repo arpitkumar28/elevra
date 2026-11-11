@@ -235,3 +235,62 @@ def test_test_content_questions_publication_and_safe_draft_delete(client, admin_
     assert attempt.status_code == 201
     _request(client, "POST", f"/tests/{test_id}/actions/unpublish", headers=admin_headers)
     assert _request(client, "DELETE", f"/tests/{test_id}", headers=admin_headers).status_code == 409
+
+
+def test_admin_overview_uses_live_opportunity_and_application_data(client, admin_headers, db):
+    from datetime import UTC, datetime, timedelta
+
+    from app.models.opportunity import Opportunity, OpportunityStatus, OpportunityType
+
+    admin_user = db.query(User).filter(User.email == "admin@example.com").one()
+    today = datetime.now(UTC).date()
+    published = Opportunity(
+        title="Closing soon internship",
+        slug="closing-soon-internship",
+        type=OpportunityType.internship,
+        organization="Elevra",
+        application_url="https://example.com/apply",
+        source_name="Official careers",
+        source_url="https://example.com/source",
+        status=OpportunityStatus.published,
+        verified=True,
+        deadline=today + timedelta(days=3),
+    )
+    pending = Opportunity(
+        title="Pending internship",
+        slug="pending-internship",
+        type=OpportunityType.internship,
+        organization="Elevra",
+        application_url="https://example.com/pending",
+        source_name="Official careers",
+        source_url="https://example.com/pending-source",
+        status=OpportunityStatus.pending_review,
+    )
+    draft = Opportunity(
+        title="Draft internship",
+        slug="draft-internship",
+        type=OpportunityType.internship,
+        organization="Elevra",
+        status=OpportunityStatus.draft,
+    )
+    db.add_all([published, pending, draft])
+    db.flush()
+    db.add(Application(user_id=admin_user.id, opportunity_id=published.id, title=published.title))
+    db.add(AuditLog(
+        actor_id=admin_user.id,
+        action="PUBLISH",
+        entity="opportunity",
+        entity_id=published.id,
+    ))
+    db.commit()
+
+    response = client.get("/api/v1/admin/overview", headers=admin_headers)
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["published_opportunities"] == 1
+    assert data["pending_review_opportunities"] == 1
+    assert data["draft_opportunities"] == 1
+    assert data["closing_soon_opportunities"] == 1
+    assert data["total_applications"] == 1
+    assert data["total_students"] == 0
+    assert data["recent_activity"][0]["action"] == "PUBLISH"
