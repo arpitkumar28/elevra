@@ -2,7 +2,24 @@ import importlib
 
 import pytest
 from sqlalchemy import create_engine
+from alembic.config import Config
 from sqlalchemy.engine import make_url
+
+from app.db.alembic_config import escape_alembic_config_value
+
+
+def test_alembic_config_accepts_percent_encoded_database_credentials():
+    database_url = (
+        "postgresql+psycopg://postgres:p%40ss%2Fword"
+        "@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres?sslmode=require"
+    )
+
+    config = Config()
+    config.set_main_option("sqlalchemy.url", escape_alembic_config_value(database_url))
+
+    restored_url = config.get_main_option("sqlalchemy.url")
+    assert restored_url == database_url
+    assert make_url(restored_url).password == "p@ss/word"
 
 
 @pytest.mark.parametrize(
