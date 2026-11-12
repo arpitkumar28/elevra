@@ -59,6 +59,24 @@ def test_duplicate_email_is_rejected(client):
     assert dup.json()["error"]["code"] == "EMAIL_ALREADY_REGISTERED"
 
 
+def test_registration_rolls_back_user_when_initial_session_creation_fails(client, db, monkeypatch):
+    from app.models.refresh_token import RefreshToken
+
+    def fail_to_issue_tokens(*_args, **_kwargs):
+        raise RuntimeError("session creation failed")
+
+    monkeypatch.setattr("app.api.v1.auth.issue_token_pair", fail_to_issue_tokens)
+
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"name": "Atomic Student", "email": "atomic@example.com", "password": "SecurePass123"},
+    )
+
+    assert response.status_code == 500
+    assert db.query(User).filter(User.email == "atomic@example.com").count() == 0
+    assert db.query(RefreshToken).count() == 0
+
+
 def test_weak_password_is_rejected(client):
     response = client.post(
         "/api/v1/auth/register",

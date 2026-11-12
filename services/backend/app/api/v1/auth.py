@@ -1,17 +1,18 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user as get_current_auth_user
 from app.core.config import settings
 from app.db.session import get_db
+from app.infrastructure.rate_limit.limiter import rate_limit
 from app.models.account_token import AccountToken
 from app.models.user import User
-from app.infrastructure.rate_limit.limiter import rate_limit
 from app.schemas.auth import (
     LoginRequest,
     PasswordResetConfirm,
@@ -22,15 +23,17 @@ from app.schemas.auth import (
 )
 from app.schemas.users import CurrentUser
 from app.services.auth import (
+    _as_utc,
     create_account_token,
     hash_password,
     hash_token_for_storage,
-    _as_utc,
     issue_token_pair,
     revoke_refresh_token,
     rotate_refresh_token,
-    get_current_user as get_db_user,
     verify_password,
+)
+from app.services.auth import (
+    get_current_user as get_db_user,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -102,12 +105,25 @@ def register(
         is_active=True,
     )
     db.add(user)
-    # Flush assigns the user ID but keeps the insert in the current transaction.
-    # issue_token_pair creates the refresh-session row and commits both records
-    # together, so a failed session creation cannot leave an orphaned account.
-    db.flush()
+    try:
+        db.flush()
+        tokens = issue_token_pair(db, user, request=request, commit=False)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        # The early lookup improves the common path; this check converts the
+        # unique-index race into the same conflict response as a pre-existing
+        # account, without hiding unrelated integrity failures.
+        if db.query(User.id).filter(User.email == payload.email).first():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="email already registered",
+            ) from exc
+        raise
+    except Exception:
+        db.rollback()
+        raise
 
-    tokens = issue_token_pair(db, user, request=request)
     _set_refresh_cookie(response, str(tokens["refresh_token"]))
     return TokenResponse(
         access_token=str(tokens["access_token"]),
