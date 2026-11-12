@@ -8,6 +8,7 @@ from sqlalchemy import engine_from_config, pool
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import settings
+from app.db.alembic_config import escape_alembic_config_value
 from app.db.session import Base
 from app.models.user import User
 from app.models.email_outbox import EmailOutbox
@@ -21,7 +22,7 @@ from app.models.opportunity import Opportunity
 from app.models.platform import Application, ApplicationEvent, AuditLog, Bookmark, Course, CurrentAffair, Notification, Question, QuestionOption, Test, TestAnswer, TestAttempt
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.alembic_database_url)
+config.set_main_option("sqlalchemy.url", escape_alembic_config_value(settings.alembic_database_url))
 if config.config_file_name is not None and config.file_config.has_section("formatters"):
     fileConfig(config.config_file_name)
 
