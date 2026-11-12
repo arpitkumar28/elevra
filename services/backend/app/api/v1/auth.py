@@ -102,8 +102,10 @@ def register(
         is_active=True,
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    # Flush assigns the user ID but keeps the insert in the current transaction.
+    # issue_token_pair creates the refresh-session row and commits both records
+    # together, so a failed session creation cannot leave an orphaned account.
+    db.flush()
 
     tokens = issue_token_pair(db, user, request=request)
     _set_refresh_cookie(response, str(tokens["refresh_token"]))
