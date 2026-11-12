@@ -111,6 +111,8 @@ class Settings:
     db_pool_timeout: int = int(os.getenv("DB_POOL_TIMEOUT", "30"))
     db_connect_timeout: int = int(os.getenv("DB_CONNECT_TIMEOUT", "5"))
     redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    redis_socket_connect_timeout_seconds: float = float(os.getenv("REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS", "3"))
+    redis_socket_timeout_seconds: float = float(os.getenv("REDIS_SOCKET_TIMEOUT_SECONDS", "3"))
     jwt_secret: str = os.getenv("JWT_SECRET", "change-me")
     jwt_issuer: str = os.getenv("JWT_ISSUER", "elevra")
     jwt_audience: str = os.getenv("JWT_AUDIENCE", "elevra-students")

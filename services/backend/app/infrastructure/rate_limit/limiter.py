@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections import defaultdict
 from hashlib import sha256
@@ -69,8 +70,11 @@ def rate_limit(name: str):
             key_digest = sha256(client_key.encode("utf-8")).hexdigest()
             redis_key = f"elevra:rate-limit:{name}:{key_digest}"
             try:
+                # redis-py is synchronous. Run its bounded network call in a
+                # worker thread so a slow Redis response cannot block the ASGI loop.
                 count = int(
-                    cache_client.client.eval(
+                    await asyncio.to_thread(
+                        cache_client.client.eval,
                         _INCREMENT_WITH_TTL,
                         1,
                         redis_key,

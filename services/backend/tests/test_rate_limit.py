@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import time
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -28,14 +30,17 @@ def _request(address: str = "198.51.100.17") -> Request:
 
 
 class FakeRedis:
-    def __init__(self, *, fail: bool = False) -> None:
+    def __init__(self, *, fail: bool = False, delay: float = 0.0) -> None:
         self.count = 0
         self.fail = fail
+        self.delay = delay
         self.calls: list[tuple[str, int, str, int]] = []
 
     def eval(self, script: str, key_count: int, key: str, ttl: int) -> int:
         if self.fail:
             raise OSError("redis unavailable")
+        if self.delay:
+            time.sleep(self.delay)
         self.calls.append((script, key_count, key, ttl))
         self.count += 1
         return self.count
@@ -71,3 +76,47 @@ def test_production_rate_limit_fails_closed_when_redis_is_unavailable(monkeypatc
 
     assert error.value.status_code == 503
     assert error.value.detail == "rate limiting temporarily unavailable"
+
+
+def test_production_rate_limit_keeps_sync_redis_io_off_event_loop(monkeypatch):
+    redis = FakeRedis(delay=0.15)
+    monkeypatch.setattr(limiter, "settings", SimpleNamespace(environment="production"))
+    monkeypatch.setattr(limiter, "cache_client", SimpleNamespace(client=redis))
+    dependency = limiter.rate_limit("login")
+
+    async def exercise() -> None:
+        task = asyncio.create_task(dependency(_request()))
+        # A synchronous Redis call would block this sleep until eval() returned.
+        await asyncio.sleep(0.01)
+        assert not task.done(), "Redis I/O must not block the ASGI event loop"
+        await task
+
+    asyncio.run(exercise())
+    assert redis.count == 1
+
+
+def test_cache_client_configures_bounded_redis_socket_timeouts(monkeypatch):
+    from app.infrastructure import cache
+
+    captured = {}
+
+    def fake_from_url(url, **kwargs):
+        captured["url"] = url
+        captured["kwargs"] = kwargs
+        return object()
+
+    configured = replace(
+        cache.settings,
+        redis_socket_connect_timeout_seconds=2.5,
+        redis_socket_timeout_seconds=4.0,
+    )
+    monkeypatch.setattr(cache, "settings", configured)
+    monkeypatch.setattr(cache.redis, "from_url", fake_from_url)
+
+    cache.CacheClient("redis://cache.example:6379/0")
+
+    assert captured["url"] == "redis://cache.example:6379/0"
+    assert captured["kwargs"]["socket_connect_timeout"] == 2.5
+    assert captured["kwargs"]["socket_timeout"] == 4.0
+    assert captured["kwargs"]["decode_responses"] is True
+
