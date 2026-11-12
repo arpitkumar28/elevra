@@ -71,7 +71,15 @@ export function PasswordResetRecovery() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    setToken(new URLSearchParams(window.location.search).get("token") || "");
+    const currentUrl = new URL(window.location.href);
+    const oneTimeToken = currentUrl.searchParams.get("token") || "";
+    currentUrl.searchParams.delete("token");
+    window.history.replaceState(
+      null,
+      "",
+      `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
+    );
+    setToken(oneTimeToken);
     setTokenReady(true);
   }, []);
 
@@ -201,7 +209,15 @@ export function EmailVerificationRecovery() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    setToken(new URLSearchParams(window.location.search).get("token") || "");
+    const currentUrl = new URL(window.location.href);
+    const oneTimeToken = currentUrl.searchParams.get("token") || "";
+    currentUrl.searchParams.delete("token");
+    window.history.replaceState(
+      null,
+      "",
+      `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
+    );
+    setToken(oneTimeToken);
     setTokenReady(true);
   }, []);
 
