@@ -1,6 +1,9 @@
 from dataclasses import replace
 
+from sqlalchemy import event
+
 from app.core.config import settings
+from app.models.user import User
 from app.infrastructure.security.jwt import create_refresh_token
 from app.models.refresh_token import RefreshToken
 from app.services.auth import hash_token_for_storage
@@ -208,3 +211,29 @@ def test_production_accepts_long_random_jwt_secret():
     from app.core.config import validate_security_settings
 
     validate_security_settings(replace(settings, environment="production", jwt_secret="x" * 64))
+
+
+def test_registration_creates_user_and_refresh_session_in_one_commit(client, db):
+    commits = []
+
+    def record_commit(session):
+        commits.append(session)
+
+    event.listen(db, "after_commit", record_commit)
+    try:
+        response = client.post(
+            "/api/v1/auth/register",
+            json={"name": "Atomic Student", "email": "atomic@example.com", "password": "SecurePass123"},
+        )
+    finally:
+        event.remove(db, "after_commit", record_commit)
+
+    assert response.status_code == 200, response.text
+    assert len(commits) == 1, "registration must commit the user and refresh session atomically"
+
+    user = db.query(User).filter(User.email == "atomic@example.com").one()
+    refresh = db.query(RefreshToken).filter(
+        RefreshToken.token_hash == hash_token_for_storage(response.json()["refresh_token"])
+    ).one()
+    assert refresh.user_id == user.id
+
