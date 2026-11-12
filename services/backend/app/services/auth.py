@@ -105,7 +105,13 @@ def create_session_record(
     return record
 
 
-def issue_token_pair(db: Session, user: User, *, request: Request | None = None) -> dict[str, str | int]:
+def issue_token_pair(
+    db: Session,
+    user: User,
+    *,
+    request: Request | None = None,
+    commit: bool = True,
+) -> dict[str, str | int]:
     session_id = uuid.uuid4().hex
     access_token = create_access_token(
         str(user.id),
@@ -119,7 +125,8 @@ def issue_token_pair(db: Session, user: User, *, request: Request | None = None)
     )
     refresh_token_value = create_refresh_token(str(user.id), {"sid": session_id})
     create_session_record(db, user, refresh_token_value=refresh_token_value, request=request, session_id=session_id)
-    db.commit()
+    if commit:
+        db.commit()
     return {
         "access_token": access_token,
         "refresh_token": refresh_token_value,
