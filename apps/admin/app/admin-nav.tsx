@@ -27,19 +27,36 @@ const items = [
 
 export function AdminNav() {
   const pathname = usePathname();
+  const studentAppUrl = process.env.NEXT_PUBLIC_STUDENT_APP_URL;
 
   return (
     <nav
       aria-label="Admin navigation"
       className="-mx-1 mt-5 flex gap-2 overflow-x-auto px-1 pb-1 text-sm lg:mx-0 lg:mt-10 lg:flex-col lg:gap-1.5 lg:px-0"
     >
-      <a
-        href={process.env.NEXT_PUBLIC_STUDENT_APP_URL || "http://localhost:3000"}
-        className="flex shrink-0 items-center gap-3 rounded-xl border border-[#dfe7df] px-3 py-2.5 font-medium text-[#155b48] transition hover:bg-[#f5f8f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#86a875] lg:mb-3"
-      >
-        <SquareArrowOutUpRight size={17} strokeWidth={1.8} aria-hidden="true" />
-        Open Student Website
-      </a>
+      {studentAppUrl ? (
+        <a
+          href={studentAppUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex shrink-0 items-center gap-3 rounded-xl border border-[#dfe7df] px-3 py-2.5 font-medium text-[#155b48] transition hover:bg-[#f5f8f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#86a875] lg:mb-3"
+        >
+          <SquareArrowOutUpRight size={17} strokeWidth={1.8} aria-hidden="true" />
+          Open Student Website
+        </a>
+      ) : process.env.NODE_ENV === "development" ? (
+        <a
+          href="http://localhost:3000"
+          className="flex shrink-0 items-center gap-3 rounded-xl border border-[#dfe7df] px-3 py-2.5 font-medium text-[#155b48] transition hover:bg-[#f5f8f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#86a875] lg:mb-3"
+        >
+          <SquareArrowOutUpRight size={17} strokeWidth={1.8} aria-hidden="true" />
+          Open Student Website
+        </a>
+      ) : (
+        <p className="rounded-xl border border-dashed border-[#dfe7df] px-3 py-2.5 text-xs leading-5 text-[#7a867e] lg:mb-3">
+          Student site link is not configured.
+        </p>
+      )}
       {items.map(({ label, href, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
