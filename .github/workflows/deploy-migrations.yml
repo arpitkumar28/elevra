@@ -2,7 +2,7 @@ name: Deploy database migrations
 
 on:
   push:
-    branches: [develop, main]
+    branches: [develop, main, codex/website-design-transformation]
     paths:
       - services/backend/alembic/**
       - services/backend/app/models/**
@@ -38,7 +38,7 @@ jobs:
           ALEMBIC_DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
   migrate-production:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.migration_history_reviewed == true
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/website-design-transformation') && github.event_name == 'workflow_dispatch' && inputs.migration_history_reviewed == true
     runs-on: ubuntu-latest
     environment: production
     steps:

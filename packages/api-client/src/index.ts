@@ -210,7 +210,9 @@ export type StudentProfile = ProfileUpdate & {
   bio?: string | null;
 };
 
-const timeout = 10000;
+// The active Render Free instance can cold-start after inactivity.
+// Allow a full startup window for the first real signup/login request.
+const timeout = 60000;
 export type ApiClientOptions = { baseUrl: string; fetch?: typeof fetch };
 export class ApiError extends Error {
   constructor(
