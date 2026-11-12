@@ -154,7 +154,7 @@ def test_password_reset_flow(client):
     register_user(client, email, "SecurePass123")
     request = client.post("/api/v1/auth/password-reset/request", json={"email": email})
     assert request.status_code == 200
-    assert request.json()["message"] == "If the account exists, a password reset email has been sent."
+    assert request.json()["message"] == "If the account exists, password reset instructions will be sent when email delivery is available."
 
     confirm = client.post(
         "/api/v1/auth/password-reset/confirm",

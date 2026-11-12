@@ -111,7 +111,7 @@ def test_password_reset_request_sends_one_time_link_and_confirms_password(
     assert outbox.status == "sent"
     assert outbox.provider_message_id == "email_api_test"
     payload = json.loads(captured["request"].data.decode("utf-8"))
-    link = payload["text"].splitlines()[2]
+    link = payload["text"].splitlines()[3]
     token = parse_qs(urlparse(link).query)["token"][0]
     assert "/reset-password?" in link
 
@@ -149,7 +149,7 @@ def test_verification_request_sends_and_consumes_one_time_link(client, db, monke
     assert response.status_code == 200
     assert "has been sent" not in response.json()["message"]
     payload = json.loads(captured["request"].data.decode("utf-8"))
-    link = payload["text"].splitlines()[2]
+    link = payload["text"].splitlines()[3]
     token = parse_qs(urlparse(link).query)["token"][0]
     assert "/verify-email?" in link
 

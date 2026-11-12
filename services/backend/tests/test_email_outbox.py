@@ -127,7 +127,7 @@ def test_resend_acceptance_sends_link_with_idempotency_and_erases_ciphertext(
 
     payload = json.loads(captured["request"].data.decode("utf-8"))
     assert payload["to"] == ["email-student@example.com"]
-    link = parse_qs(urlparse(payload["text"].splitlines()[2]).query)
+    link = parse_qs(urlparse(payload["text"].splitlines()[3]).query)
     assert link["token"] == [raw_value]
     assert db.query(AccountToken).filter_by(id=token_row.id).one().token_hash != raw_value
 
@@ -154,7 +154,8 @@ def test_retryable_resend_failure_is_scheduled_with_bounded_backoff(db, monkeypa
     assert outbox.last_error == "resend_http_429"
     assert outbox.encrypted_token is not None
     assert outbox.locked_until is None
-    assert now + timedelta(seconds=29) < outbox.next_attempt_at < now + timedelta(seconds=32)
+    retry_at = outbox.next_attempt_at.replace(tzinfo=UTC) if outbox.next_attempt_at.tzinfo is None else outbox.next_attempt_at
+    assert now + timedelta(seconds=29) < retry_at < now + timedelta(seconds=32)
 
 
 def test_permanent_resend_failure_invalidates_one_time_token(db, monkeypatch):
