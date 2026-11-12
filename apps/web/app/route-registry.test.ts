@@ -5,6 +5,8 @@ describe("web route registry", () => {
   it("recognizes the home, account, content, and detail routes", () => {
     expect(isKnownWebRoute([])).toBe(true);
     expect(isKnownWebRoute(["profile"])).toBe(true);
+    expect(isKnownWebRoute(["reset-password"])).toBe(true);
+    expect(isKnownWebRoute(["verify-email"])).toBe(true);
     expect(isKnownWebRoute(["courses", "course-id"])).toBe(true);
     expect(isKnownWebRoute(["opportunities", "opportunity-slug"])).toBe(true);
   });

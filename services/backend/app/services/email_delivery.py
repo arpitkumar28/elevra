@@ -28,8 +28,9 @@ class EmailProviderError(Exception):
         self.retryable = retryable
 
 
-def email_delivery_is_configured(config=settings) -> bool:
+def email_delivery_is_configured(config=None) -> bool:
     """Return true only when every secret and URL needed to send securely exists."""
+    config = config or settings
     required = (
         config.resend_api_key,
         config.email_from,

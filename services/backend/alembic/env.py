@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.core.config import settings
 from app.db.session import Base
 from app.models.user import User
+from app.models.email_outbox import EmailOutbox
 from app.models.student_profile import StudentProfile
 from app.models.exam import Exam
 from app.models.exam_syllabus import ExamSyllabus
