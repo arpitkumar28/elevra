@@ -11,9 +11,10 @@ import {
   useRef,
   useState,
 } from "react";
+import { resolveApiBaseUrl } from "./api-config";
 
 const apiClient = createApiClient({
-  baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/v1",
+  baseUrl: resolveApiBaseUrl(),
 });
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated" | "error";

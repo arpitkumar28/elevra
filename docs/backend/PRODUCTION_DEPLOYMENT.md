@@ -1,13 +1,14 @@
 # Elevra Backend Production Deployment
 
-This document describes the repository's Render service contract. It does not
-verify current dashboard values and does not authorize a deployment or database
-migration.
+This document describes the repository's Render service contract. It records the
+connected service metadata checked on 2026-11-12; it does not authorize a
+database migration or production data write.
 
 ## Runtime
 
-- Render manifest: `/render.yaml`; production service is `elevra-api`, branch
-  `main`, root directory `services/backend`, Docker runtime.
+- Render manifest: `/render.yaml`; the active production service is `elevra-api`
+  at `https://elevra-api-jrxa.onrender.com`, branch
+  `codex/website-design-transformation`, root directory `services/backend`, Docker runtime.
 - Docker image uses Python 3.12 slim and installs `services/backend/requirements.txt`.
 - ASGI import: `app.main:app`.
 - Start command: `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`.
@@ -50,6 +51,22 @@ not treat it as a supported production path until it is deliberately completed.
 `ENABLE_DOCS` appears in the example environment file but is not consumed by
 the current settings or FastAPI construction. Verify the desired OpenAPI policy
 before relying on it.
+
+## Web authentication and API connection
+
+The student and admin web apps use the same API client. In production, that
+client defaults to the active Render API at
+`https://elevra-api-jrxa.onrender.com/api/v1`; `NEXT_PUBLIC_API_BASE_URL` can
+override it per Vercel environment. Local development continues to default to
+`http://localhost:8000/api/v1`. The API URL is public configuration, not a
+secret. The browser must be able to reach the API host.
+
+Registration is `POST /api/v1/auth/register`. It creates the student and
+initial refresh session in one database transaction, returns the access token,
+and sets an HttpOnly refresh cookie. The client then calls
+`GET /api/v1/auth/me` with the returned bearer token before marking the session
+authenticated. The registration form redirects only after both requests
+succeed.
 
 ## CORS and cookies
 

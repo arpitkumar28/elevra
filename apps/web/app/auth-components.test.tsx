@@ -46,6 +46,33 @@ describe("auth routes", () => {
     );
   });
 
+  it("submits registration details to the auth provider", async () => {
+    const signUp = vi.fn().mockResolvedValue(undefined);
+    mocks.useAuth.mockReturnValue({
+      status: "unauthenticated",
+      user: null,
+      signIn: vi.fn(),
+      signUp,
+      signOut: vi.fn(),
+    });
+
+    render(<AuthForm mode="register" />);
+    fireEvent.change(screen.getByLabelText("Your name"), {
+      target: { value: "  Arpit Kumar  " },
+    });
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "arpit@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "StrongPassword123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    await waitFor(() =>
+      expect(signUp).toHaveBeenCalledWith("Arpit Kumar", "arpit@example.com", "StrongPassword123"),
+    );
+  });
+
   it("redirects a protected account route to login when no session exists", async () => {
     render(
       <ProtectedContent>

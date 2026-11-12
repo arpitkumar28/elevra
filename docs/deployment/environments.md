@@ -7,7 +7,7 @@ infrastructure only; it is never a production dependency.
 | ----------- | ---------------- | ------------------------------- | --------------------------- | ------------------------------------------------------------ |
 | Development | feature branches | local Next.js                   | local FastAPI               | local PostgreSQL and Redis via Docker Compose                |
 | Staging     | `develop`        | Vercel preview/staging projects | Render `elevra-api-staging` | dedicated Supabase project and Upstash Redis database        |
-| Production  | `main`           | Vercel production projects      | Render `elevra-api`         | Supabase `elevraElevra` and dedicated Upstash Redis database |
+| Production  | `codex/website-design-transformation` | Vercel production projects      | Render `elevra-api`         | Supabase `elevraElevra` and dedicated Upstash Redis database |
 
 Cloudflare owns public DNS, CDN, TLS and WAF in staging and production. Both
 Next.js applications call FastAPI only: neither browser application receives a
@@ -16,9 +16,10 @@ database or Redis credential.
 ## Public Next.js configuration
 
 Set `NEXT_PUBLIC_API_BASE_URL` per Vercel environment. Its value includes the
-API version, for example `http://localhost:8000/api/v1` locally and
-`https://api.<domain>/api/v1` in production. Only `NEXT_PUBLIC_*` values are
-sent to the browser. Do not put `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`,
+API version. Local development uses `http://localhost:8000/api/v1`; the current
+production default is `https://elevra-api-jrxa.onrender.com/api/v1`. Set an
+explicit Vercel value when using a custom API host. Only `NEXT_PUBLIC_*` values
+are sent to the browser. Do not put `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`,
 `SUPABASE_SERVICE_ROLE_KEY`, or private API keys in Vercel public variables.
 
 Configure `NEXT_PUBLIC_ADMIN_URL` in the student app and
@@ -62,7 +63,8 @@ Alembic is the only migration authority. The deployment workflow runs
 environment after branch protection and any environment approval. Staging
 migrations require a manual workflow dispatch on `develop` with the
 `migration_history_reviewed` confirmation enabled; production uses the same
-gate on `main`. This confirms the migration history has passed a fresh
+gate on `codex/website-design-transformation` (the legacy `main` ref remains
+accepted for manual production dispatch). This confirms the migration history has passed a fresh
 PostgreSQL upgrade test and review. Pushes cannot run migrations automatically.
 Add the corresponding `DATABASE_URL` GitHub environment secret before enabling
 releases. Render deploys from GitHub only after CI succeeds; it does not run

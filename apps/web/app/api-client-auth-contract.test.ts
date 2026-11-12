@@ -33,6 +33,42 @@ describe("shared API client auth response compatibility", () => {
     );
   });
 
+  it("posts registration details to the live FastAPI contract with cookie credentials", async () => {
+    const tokens = {
+      access_token: "access-token",
+      refresh_token: "refresh-token",
+      token_type: "bearer" as const,
+      expires_in: 900,
+    };
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(tokens), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    const client = createApiClient({
+      baseUrl: "https://elevra-api-jrxa.onrender.com/api/v1",
+      fetch: fetcher as unknown as typeof fetch,
+    });
+
+    await expect(
+      client.register("Arpit Kumar", "arpit@example.com", "StrongPassword123"),
+    ).resolves.toEqual(tokens);
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://elevra-api-jrxa.onrender.com/api/v1/auth/register",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify({
+          name: "Arpit Kumar",
+          email: "arpit@example.com",
+          password: "StrongPassword123",
+        }),
+        headers: expect.objectContaining({ "Content-Type": "application/json" }),
+      }),
+    );
+  });
+
   it("preserves the super-admin role and defaults an empty role list to student", async () => {
     const fetcher = vi
       .fn()
