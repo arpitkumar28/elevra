@@ -27,7 +27,9 @@ const items = [
 
 export function AdminNav() {
   const pathname = usePathname();
-  const studentAppUrl = process.env.NEXT_PUBLIC_STUDENT_APP_URL;
+  const studentAppUrl =
+    process.env.NEXT_PUBLIC_STUDENT_APP_URL ||
+    (process.env.NODE_ENV !== "production" ? "http://localhost:3000" : undefined);
 
   return (
     <nav
@@ -39,14 +41,6 @@ export function AdminNav() {
           href={studentAppUrl}
           target="_blank"
           rel="noreferrer"
-          className="flex shrink-0 items-center gap-3 rounded-xl border border-[#dfe7df] px-3 py-2.5 font-medium text-[#155b48] transition hover:bg-[#f5f8f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#86a875] lg:mb-3"
-        >
-          <SquareArrowOutUpRight size={17} strokeWidth={1.8} aria-hidden="true" />
-          Open Student Website
-        </a>
-      ) : process.env.NODE_ENV === "development" ? (
-        <a
-          href="http://localhost:3000"
           className="flex shrink-0 items-center gap-3 rounded-xl border border-[#dfe7df] px-3 py-2.5 font-medium text-[#155b48] transition hover:bg-[#f5f8f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#86a875] lg:mb-3"
         >
           <SquareArrowOutUpRight size={17} strokeWidth={1.8} aria-hidden="true" />
