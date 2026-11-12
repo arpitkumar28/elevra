@@ -2,6 +2,8 @@ const accountRoutes = new Set([
   "dashboard",
   "login",
   "register",
+  "reset-password",
+  "verify-email",
   "profile",
   "notifications",
   "saved",

@@ -28,8 +28,9 @@ class EmailProviderError(Exception):
         self.retryable = retryable
 
 
-def email_delivery_is_configured(config=settings) -> bool:
+def email_delivery_is_configured(config=None) -> bool:
     """Return true only when every secret and URL needed to send securely exists."""
+    config = config or settings
     required = (
         config.resend_api_key,
         config.email_from,
@@ -40,9 +41,22 @@ def email_delivery_is_configured(config=settings) -> bool:
         return False
     try:
         parsed = urlparse(config.email_frontend_url)
-        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+        ):
             return False
         if config.environment not in {"development", "test"} and parsed.scheme != "https":
+            return False
+        if not 1 <= config.email_outbox_max_attempts <= 10:
+            return False
+        if not 1 <= config.email_provider_timeout_seconds <= 30:
+            return False
+        if config.email_outbox_lease_seconds <= config.email_provider_timeout_seconds:
             return False
         Fernet(config.email_outbox_encryption_key.encode("ascii"))
     except (ValueError, UnicodeEncodeError):

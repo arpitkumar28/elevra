@@ -24,7 +24,7 @@ steps are reviewed.
 | P0 | Avoid echoing sensitive input in validation errors | Validation handler returns safe error fields and has a regression proving rejected passwords are not reflected. | **Implemented.** |
 | P1 | Make registration/session creation atomic | Registration flushes the user and creates its refresh-session row before token-pair creation commits. PR #32 added a regression asserting one commit and a linked refresh session. | **Merged in PR #32.** Keep rollback and one-commit regression tests. |
 | P1 | Bound Redis operations | Redis now has explicit connect/socket timeouts; the synchronous Lua counter runs in a worker thread and still fails closed with 503 when Redis is unavailable. | **Implemented in PR pending review.** Tests cover timeout configuration, event-loop responsiveness, atomic counters, and failure behavior. Validate timeout values against the selected Redis provider. |
-| P1 | Deliver password-reset and verification messages | Account tokens are stored hashed and expire, but no mail provider, verified sender, persistent outbox, or delivery worker is configured. Current public success text must not be interpreted as proof of delivery. | **Blocked on provider setup.** Select provider, verify sender/domain, add secrets, idempotent delivery/outbox + retry behavior, and verify acceptance before claiming an email was sent. |
+| P1 | Deliver password-reset and verification messages | Resend delivery now has a Fernet-encrypted SQL outbox, stable provider idempotency keys, bounded request timeouts, retry/backoff, and web reset/verification pages. Sending remains disabled until provider, sender, frontend origin, and encryption secrets are configured. | **Implemented in this change; provider configuration and scheduled retry sweep remain operational steps.** Verify sender/domain, run migration through reviewed staging process, and schedule `python -m app.workers.email_outbox`. |
 | P1 | Audit private-resource ownership and admin permissions | Student handlers generally filter by authenticated user ID; admin endpoints use backend permission checks. Existing tests cover key cross-user and role cases. | **In progress.** Maintain a route-by-route matrix for authentication, ownership, role, and negative cases; add regressions for every uncovered endpoint. |
 | P1 | Make operational health endpoints truthful | `/api/v1/health` is process liveness; `/api/v1/health/ready` checks PostgreSQL and Redis and returns a generic failure without infrastructure details. | **Implemented.** Verify injected database/Redis failures and keep platform probes on liveness. |
 | P1 | Complete the admin overview and opportunity workflow | Admin overview now returns live opportunity/application/student counts and recent audit events. Opportunity lifecycle, work-mode filters, application status history, follow-up dates, and private notes are implemented. | **Implemented in current feature set.** Keep API/UI contract tests and avoid stale 501 expectations in documentation. |
@@ -53,6 +53,11 @@ steps are reviewed.
   by authenticated user ID and administrative routes require permissions.
 - Render runs the Dockerized Uvicorn service. The backend image does not run
   Alembic automatically; migrations use the reviewed workflow.
+- Email delivery: Resend REST API behind a persistent outbox. Raw account
+  tokens are encrypted in `email_outbox`; the account-token table stores only
+  SHA-256 hashes. Background tasks attempt an immediate send and the CLI worker
+  retries due outbox rows. Delivery is disabled unless all required secrets and
+  URL settings are present.
 
 ## Safe implementation sequence
 

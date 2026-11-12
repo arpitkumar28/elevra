@@ -11,6 +11,7 @@ import {
   type CurrentAffair,
 } from "@elevra/api-client";
 import { AuthForm, ProtectedContent } from "../auth-components";
+import { EmailVerificationRecovery, PasswordResetRecovery } from "../auth-recovery-components";
 import {
   ApplicationsPage,
   DashboardPage,
@@ -970,6 +971,8 @@ export default function RoutePage({ params }: { params: { slug?: string[] } }) {
     );
   if (parts[0] === "login") return <AuthForm mode="login" />;
   if (parts[0] === "register") return <AuthForm mode="register" />;
+  if (parts[0] === "reset-password") return <PasswordResetRecovery />;
+  if (parts[0] === "verify-email") return <EmailVerificationRecovery />;
   if (parts[0] === "profile")
     return (
       <ProtectedContent>

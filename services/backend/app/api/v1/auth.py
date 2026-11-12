@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Cookie, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Body, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
@@ -22,6 +22,11 @@ from app.schemas.auth import (
     TokenResponse,
 )
 from app.schemas.users import CurrentUser
+from app.services.email_delivery import (
+    dispatch_email_item,
+    email_delivery_is_configured,
+    enqueue_account_email,
+)
 from app.services.auth import (
     _as_utc,
     create_account_token,
@@ -91,6 +96,7 @@ def register(
     payload: RegisterRequest,
     request: Request,
     response: Response,
+    background_tasks: BackgroundTasks,
     db: Annotated[Session, Depends(get_db)],
 ) -> TokenResponse:
     existing = db.query(User).filter(User.email == payload.email).first()
@@ -108,6 +114,18 @@ def register(
     try:
         db.flush()
         tokens = issue_token_pair(db, user, request=request, commit=False)
+        verification_outbox = None
+        if email_delivery_is_configured():
+            account_token, token_value = create_account_token(
+                db, user, "email_verification", expires_in_hours=24
+            )
+            verification_outbox = enqueue_account_email(
+                db,
+                account_token=account_token,
+                recipient_email=user.email,
+                purpose="email_verification",
+                token_value=token_value,
+            )
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -124,6 +142,8 @@ def register(
         db.rollback()
         raise
 
+    if verification_outbox is not None:
+        background_tasks.add_task(dispatch_email_item, verification_outbox.id)
     _set_refresh_cookie(response, str(tokens["refresh_token"]))
     return TokenResponse(
         access_token=str(tokens["access_token"]),
@@ -216,18 +236,42 @@ def me(user: Annotated[CurrentUser, Depends(get_current_auth_user)]) -> dict[str
 
 
 @router.post("/password-reset/request", dependencies=[Depends(rate_limit("password_reset"))])
-def password_reset_request(payload: PasswordResetRequest, db: Annotated[Session, Depends(get_db)]) -> dict[str, str]:
+def password_reset_request(
+    payload: PasswordResetRequest,
+    background_tasks: BackgroundTasks,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, str]:
     user = db.query(User).filter(User.email == payload.email).first()
-    if user is not None:
-        create_account_token(db, user, "password_reset", expires_in_hours=1)
-        db.commit()
-    return {"message": "If the account exists, a password reset email has been sent."}
+    if user is not None and email_delivery_is_configured():
+        account_token, token_value = create_account_token(
+            db, user, "password_reset", expires_in_hours=1
+        )
+        outbox = enqueue_account_email(
+            db,
+            account_token=account_token,
+            recipient_email=user.email,
+            purpose="password_reset",
+            token_value=token_value,
+        )
+        if outbox is not None:
+            db.commit()
+            background_tasks.add_task(dispatch_email_item, outbox.id)
+        else:
+            db.rollback()
+    return {"message": "If the account exists, password reset instructions will be sent when email delivery is available."}
 
 
 @router.post("/password-reset/confirm")
 def password_reset_confirm(payload: PasswordResetConfirm, db: Annotated[Session, Depends(get_db)]) -> dict[str, str]:
-    token = db.query(AccountToken).filter(AccountToken.token_hash == hash_token_for_storage(payload.token)).first()
-    if token is None or token.used_at is not None or token.expires_at <= datetime.now(UTC):
+    token = (
+        db.query(AccountToken)
+        .filter(
+            AccountToken.token_hash == hash_token_for_storage(payload.token),
+            AccountToken.purpose == "password_reset",
+        )
+        .first()
+    )
+    if token is None or token.used_at is not None or _as_utc(token.expires_at) <= datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid or expired token")
     user = db.get(User, token.user_id)
     if user is None:
@@ -239,18 +283,42 @@ def password_reset_confirm(payload: PasswordResetConfirm, db: Annotated[Session,
 
 
 @router.post("/verify-email/request", dependencies=[Depends(rate_limit("password_reset"))])
-def verify_email_request(payload: PasswordResetRequest, db: Annotated[Session, Depends(get_db)]) -> dict[str, str]:
+def verify_email_request(
+    payload: PasswordResetRequest,
+    background_tasks: BackgroundTasks,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, str]:
     user = db.query(User).filter(User.email == payload.email).first()
-    if user is not None:
-        create_account_token(db, user, "email_verification", expires_in_hours=24)
-        db.commit()
-    return {"message": "If the account exists, a verification email has been sent."}
+    if user is not None and not user.email_verified and email_delivery_is_configured():
+        account_token, token_value = create_account_token(
+            db, user, "email_verification", expires_in_hours=24
+        )
+        outbox = enqueue_account_email(
+            db,
+            account_token=account_token,
+            recipient_email=user.email,
+            purpose="email_verification",
+            token_value=token_value,
+        )
+        if outbox is not None:
+            db.commit()
+            background_tasks.add_task(dispatch_email_item, outbox.id)
+        else:
+            db.rollback()
+    return {"message": "If the account exists, verification instructions will be sent when email delivery is available."}
 
 
 @router.post("/verify-email/confirm")
 def verify_email_confirm(payload: TokenRequest, db: Annotated[Session, Depends(get_db)]) -> dict[str, str]:
-    token = db.query(AccountToken).filter(AccountToken.token_hash == hash_token_for_storage(payload.token)).first()
-    if token is None or token.used_at is not None or token.expires_at <= datetime.now(UTC):
+    token = (
+        db.query(AccountToken)
+        .filter(
+            AccountToken.token_hash == hash_token_for_storage(payload.token),
+            AccountToken.purpose == "email_verification",
+        )
+        .first()
+    )
+    if token is None or token.used_at is not None or _as_utc(token.expires_at) <= datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid or expired token")
     user = db.get(User, token.user_id)
     if user is None:

@@ -157,6 +157,16 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             {registering ? "Sign in" : "Create an account"}
           </Link>
         </p>
+        {!registering && (
+          <p className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            <Link href="/reset-password" className="font-semibold text-[#145b48] underline underline-offset-4">
+              Forgot password?
+            </Link>
+            <Link href="/verify-email" className="font-semibold text-[#145b48] underline underline-offset-4">
+              Verify email
+            </Link>
+          </p>
+        )}
       </section>
       <aside className="rounded-[2rem] bg-[#e9efe4] p-8 sm:p-10">
         <span className="text-xs font-bold uppercase tracking-[.16em] text-[#668b59]">

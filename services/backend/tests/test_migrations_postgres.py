@@ -21,6 +21,7 @@ from app.models import (  # noqa: F401
     exam_faq,
     exam_pattern,
     exam_syllabus,
+    email_outbox,
     opportunity,
     platform,
     refresh_token,
@@ -200,7 +201,7 @@ def test_fresh_postgres_pgvector_upgrade_matches_active_orm() -> None:
                     """
                 )
             ).all()
-        assert revisions == ["20261111_opportunity_work_mode"]
+        assert revisions == ["20261112_auth_email_outbox"]
         assert {name for name, enabled in rls_status if enabled} >= expected_tables
         assert all(enabled for _, enabled in rls_status)
     finally:
