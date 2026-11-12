@@ -47,6 +47,38 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r services/backend/requirements.txt
+      - name: Validate production database secret
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          EXPECTED_SUPABASE_PROJECT_REF: vrwblsjfqsdhjsayxxvw
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy.engine import make_url
+
+          database_url = os.environ.get("DATABASE_URL", "").strip()
+          if not database_url:
+              raise SystemExit(
+                  "::error::The production environment secret DATABASE_URL is empty or unavailable. "
+                  "Set it under Settings > Environments > production > Environment secrets."
+              )
+
+          try:
+              parsed = make_url(database_url)
+          except Exception:
+              raise SystemExit(
+                  "::error::The production DATABASE_URL is not a valid SQLAlchemy database URL."
+              ) from None
+
+          expected_ref = os.environ["EXPECTED_SUPABASE_PROJECT_REF"]
+          if not parsed.host or expected_ref not in database_url:
+              raise SystemExit(
+                  "::error::The production DATABASE_URL does not identify the configured Elevra Supabase project. "
+                  "Check the production secret without pasting it into logs or chat."
+              )
+
+          print(f"Validated production database URL for Supabase project {expected_ref} (host: {parsed.host}).")
+          PY
       - run: alembic upgrade head
         working-directory: services/backend
         env:
