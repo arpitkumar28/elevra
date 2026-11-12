@@ -211,8 +211,17 @@ def rotate_refresh_token(db: Session, refresh_token_value: str, *, request: Requ
     }
 
 
-def create_account_token(db: Session, user: User, purpose: str, *, expires_in_hours: int = 1) -> AccountToken:
-    value = uuid.uuid4().hex
+def create_account_token(
+    db: Session,
+    user: User,
+    purpose: str,
+    *,
+    expires_in_hours: int = 1,
+) -> tuple[AccountToken, str]:
+    """Create a hashed account token and return its one-time raw value once."""
+    import secrets
+
+    value = secrets.token_urlsafe(32)
     token = AccountToken(
         user_id=user.id,
         purpose=purpose,
@@ -221,7 +230,7 @@ def create_account_token(db: Session, user: User, purpose: str, *, expires_in_ho
     )
     db.add(token)
     db.flush()
-    return token
+    return token, value
 
 
 def validate_account_token(db: Session, user: User, purpose: str, token_value: str) -> AccountToken | None:
