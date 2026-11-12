@@ -5,7 +5,12 @@ from app.core.config import settings
 
 class CacheClient:
     def __init__(self, url: str | None = None) -> None:
-        self.client = redis.from_url(url or settings.redis_url, decode_responses=True)
+        self.client = redis.from_url(
+            url or settings.redis_url,
+            decode_responses=True,
+            socket_connect_timeout=settings.redis_socket_connect_timeout_seconds,
+            socket_timeout=settings.redis_socket_timeout_seconds,
+        )
 
     def ping(self) -> bool:
         try:
